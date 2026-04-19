@@ -1,3 +1,4 @@
+import { apiClient, isMockMode } from '@/shared/api/client'
 import { db } from '@/mocks/db'
 import type { LocalizedDeliverable, LocalizedTask, LocalizedText } from '@/mocks/db/seed/types'
 import type { Lang } from '@/shared/i18n/dict'
@@ -8,7 +9,12 @@ function pickText(text: LocalizedText, lang: Lang) {
   return lang === 'ko' ? text.ko : text.en
 }
 
-export async function fetchProjectDetail(projectId: string, lang: Lang) {
+export async function fetchProjectDetail(projectId: string, lang: Lang): Promise<ProjectDetail> {
+  if (!isMockMode()) {
+    const { data } = await apiClient.get<ProjectDetail>(`/projects/${projectId}`, { params: { lang } })
+    return data
+  }
+
   await sleep(220)
   const project = db.projects.find((p) => p.id === projectId)
   if (!project) throw new Error(`Project not found: ${projectId}`)
@@ -35,36 +41,47 @@ export async function fetchProjectDetail(projectId: string, lang: Lang) {
       }
     })
 
-  const result: ProjectDetail = { project: mappedProject, risks }
-  return result
+  return { project: mappedProject, risks }
 }
 
-export async function fetchProjectProgress(projectId: string) {
+export async function fetchProjectProgress(projectId: string): Promise<ProgressPoint[]> {
+  if (!isMockMode()) {
+    const { data } = await apiClient.get<ProgressPoint[]>(`/projects/${projectId}/progress`)
+    return data
+  }
+
   await sleep(220)
   const points = db.progressByProjectId[projectId]
   if (!points) throw new Error(`Progress not found: ${projectId}`)
-  const result: ProgressPoint[] = points
-  return result
+  return points
 }
 
-export async function fetchProjectTasks(projectId: string, lang: Lang) {
+export async function fetchProjectTasks(projectId: string, lang: Lang): Promise<ProjectTask[]> {
+  if (!isMockMode()) {
+    const { data } = await apiClient.get<ProjectTask[]>(`/projects/${projectId}/tasks`, { params: { lang } })
+    return data
+  }
+
   await sleep(200)
   const items = db.tasksByProjectId[projectId]
   if (!items) throw new Error(`Tasks not found: ${projectId}`)
-  const result: ProjectTask[] = (items as LocalizedTask[]).map((t) => ({
+  return (items as LocalizedTask[]).map((t) => ({
     ...t,
     name: pickText(t.name, lang),
   }))
-  return result
 }
 
-export async function fetchProjectDeliverables(projectId: string, lang: Lang) {
+export async function fetchProjectDeliverables(projectId: string, lang: Lang): Promise<DeliverableItem[]> {
+  if (!isMockMode()) {
+    const { data } = await apiClient.get<DeliverableItem[]>(`/projects/${projectId}/deliverables`, { params: { lang } })
+    return data
+  }
+
   await sleep(200)
   const items = db.deliverablesByProjectId[projectId]
   if (!items) throw new Error(`Deliverables not found: ${projectId}`)
-  const result: DeliverableItem[] = (items as LocalizedDeliverable[]).map((d) => ({
+  return (items as LocalizedDeliverable[]).map((d) => ({
     ...d,
     title: pickText(d.title, lang),
   }))
-  return result
 }

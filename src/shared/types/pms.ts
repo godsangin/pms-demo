@@ -1,6 +1,6 @@
 export type StatusSignal = 'GREEN' | 'YELLOW' | 'RED'
 
-export type RiskSeverity = 'HIGH' | 'CRITICAL'
+export type RiskSeverity = 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
 export type RiskStatus = 'OPEN' | 'MITIGATING' | 'CLOSED'
 
@@ -40,14 +40,18 @@ export type RiskItem = {
 export type ProjectTask = {
   id: string
   projectId: string
+  wbsCode: string
+  depth: number
   name: string
+  weight: number
+  progressPct: number
   baselineStart: string
   baselineEnd: string
-  actualStart: string
-  actualEnd: string
+  actualStart?: string
+  actualEnd?: string
 }
 
-export type DeliverableStatus = 'PLANNED' | 'SUBMITTED' | 'ACCEPTED' | 'REJECTED'
+export type DeliverableStatus = 'PLANNED' | 'SUBMITTED' | 'ACCEPTED' | 'REJECTED' | 'NOT_SUBMITTED'
 
 export type DeliveryStage = 'ANALYSIS_DESIGN' | 'DEVELOPMENT' | 'TEST' | 'DEPLOYMENT'
 
@@ -60,6 +64,18 @@ export type DeliverableItem = {
   dueDate: string
   submittedDate?: string
   decidedDate?: string
+  attachment?: {
+    name: string
+    url: string
+    uploadedAt: string
+  }
+  tailoringHistory?: {
+    id: string
+    type: 'ADD' | 'REMOVE' | 'MODIFY'
+    reason: string
+    date: string
+    author: string
+  }[]
 }
 
 export type ProgramStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED'
@@ -74,8 +90,8 @@ export type ProgramItem = {
   progressPct: number
   baselineStart: string
   baselineEnd: string
-  actualStart: string
-  actualEnd: string
+  actualStart?: string
+  actualEnd?: string
 }
 
 export type TestType = 'UNIT' | 'INTEGRATION'

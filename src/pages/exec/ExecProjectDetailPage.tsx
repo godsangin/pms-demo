@@ -88,7 +88,7 @@ export function ExecProjectDetailPage() {
   }
 
   const p = data.project
-  const isSoftwareBuild = p.id === 'P-1098'
+  const isSoftwareBuild = p.id === 'P-1098' || p.id === 'P-2026'
 
   return (
     <div className="space-y-4">
@@ -209,7 +209,11 @@ export function ExecProjectDetailPage() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           <div className="xl:col-span-6">
             {stageProgressQuery.data ? (
-              <StageProgressPanel items={stageProgressQuery.data} />
+              <StageProgressPanel 
+                stages={stageProgressQuery.data} 
+                deliverables={deliverablesQuery.data}
+                programs={programsQuery.data}
+              />
             ) : (
               <Card>
                 <CardHeader>

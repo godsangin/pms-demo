@@ -1,3 +1,4 @@
+import { apiClient, isMockMode } from '@/shared/api/client'
 import { db } from '@/mocks/db'
 import type { LocalizedProject, LocalizedRisk, LocalizedText } from '@/mocks/db/seed/types'
 import type { Lang } from '@/shared/i18n/dict'
@@ -40,15 +41,20 @@ function mapRisk(r: LocalizedRisk, lang: Lang): RiskItem {
   }
 }
 
-export async function fetchPortfolioDashboard(lang: Lang) {
+export async function fetchPortfolioDashboard(lang: Lang): Promise<PortfolioDashboard> {
+  if (!isMockMode()) {
+    const { data } = await apiClient.get<PortfolioDashboard>('/dashboard', { params: { lang } })
+    return data
+  }
+
   await sleep(250)
 
   const projects = [...db.projects]
     .sort((a, b) => {
-    const statusRank = (s: typeof a.status) => (s === 'RED' ? 3 : s === 'YELLOW' ? 2 : 1)
-    const byStatus = statusRank(b.status) - statusRank(a.status)
-    if (byStatus !== 0) return byStatus
-    return a.id.localeCompare(b.id)
+      const statusRank = (s: typeof a.status) => (s === 'RED' ? 3 : s === 'YELLOW' ? 2 : 1)
+      const byStatus = statusRank(b.status) - statusRank(a.status)
+      if (byStatus !== 0) return byStatus
+      return a.id.localeCompare(b.id)
     })
     .map((p) => mapProject(p, lang))
 
@@ -80,12 +86,10 @@ export async function fetchPortfolioDashboard(lang: Lang) {
     .slice(0, 5)
     .map((r) => mapRisk(r, lang))
 
-  const result: PortfolioDashboard = {
+  return {
     asOfDate: db.asOfDate,
     kpis,
     projects,
     topRisks,
   }
-
-  return result
 }

@@ -1,9 +1,13 @@
+import { useState } from 'react'
 import { formatIsoDate } from '@/shared/lib/format'
 import { useI18n } from '@/shared/i18n/I18nProvider'
 import type { DeliverableItem, DeliverableStatus } from '@/shared/types/pms'
 import { Badge } from '@/shared/ui/Badge'
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Table, type Column } from '@/shared/ui/Table'
+import { Button } from '@/shared/ui/Button'
+import { Drawer } from '@/shared/ui/Drawer'
+import { DeliverableUpload } from './DeliverableUpload'
 
 function statusTone(status: DeliverableStatus) {
   if (status === 'ACCEPTED') return 'green'
@@ -14,6 +18,13 @@ function statusTone(status: DeliverableStatus) {
 
 export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
   const { t } = useI18n()
+  const [isUploadOpen, setIsUploadOpen] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const handleUpload = (id: string) => {
+    setSelectedId(id)
+    setIsUploadOpen(true)
+  }
 
   const columns: Column<DeliverableItem>[] = [
     {
@@ -30,8 +41,11 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
       header: t('deliverables.col.status'),
       className: 'w-[130px] text-center',
       cell: (d) => (
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center gap-1">
           <Badge tone={statusTone(d.status)}>{d.status}</Badge>
+          {(d.status as string) === 'NOT_SUBMITTED' && (
+            <Button size="xs" variant="outline" onClick={() => handleUpload(d.id)}>업로드</Button>
+          )}
         </div>
       ),
     },
@@ -57,17 +71,33 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
   ]
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('deliverables.title')}</CardTitle>
-      </CardHeader>
-      <CardBody className="p-0">
-        {items.length > 0 ? (
-          <Table columns={columns} rows={items} rowKey={(d) => d.id} />
-        ) : (
-          <div className="p-5 text-sm text-zinc-600">{t('deliverables.none')}</div>
-        )}
-      </CardBody>
-    </Card>
+    <>
+      <Card>
+        <CardHeader className="flex items-center justify-between">
+          <CardTitle>{t('deliverables.title')}</CardTitle>
+          <Button size="sm">+ 새 산출물 등록</Button>
+        </CardHeader>
+        <CardBody className="p-0">
+          {items.length > 0 ? (
+            <Table columns={columns} rows={items} rowKey={(d) => d.id} />
+          ) : (
+            <div className="p-5 text-sm text-zinc-600">{t('deliverables.none')}</div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Drawer 
+        open={isUploadOpen} 
+        onClose={() => setIsUploadOpen(false)}
+        title="산출물 파일 업로드"
+      >
+        <div className="p-4">
+          <DeliverableUpload 
+            deliverableId={selectedId || ''} 
+            onUploadSuccess={() => setIsUploadOpen(false)}
+          />
+        </div>
+      </Drawer>
+    </>
   )
 }

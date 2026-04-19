@@ -50,6 +50,7 @@ export function TestManagementPanel({
 
   const [activeType, setActiveType] = useState<TestType>('UNIT')
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
+  const [isAddMode, setIsAddMode] = useState(false)
   const [overrides, setOverrides] = useState<Overrides>({})
 
   useEffect(() => {
@@ -156,114 +157,143 @@ export function TestManagementPanel({
   )
 
   return (
-    <Card>
-      <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-        <CardTitle>{t('software.tests.title')}</CardTitle>
-        <div className="flex items-center gap-2">
-          <Tab type="UNIT" />
-          <Tab type="INTEGRATION" />
-          <div className="ml-1 text-xs text-zinc-600">{list.length}</div>
-        </div>
-      </CardHeader>
-      <CardBody className="p-0">
-        {list.length > 0 ? (
-          <Table
-            columns={columns}
-            rows={list}
-            rowKey={(s) => s.id}
-            className="border-0"
-            onRowClick={(s) => setSelectedId(s.id)}
-          />
-        ) : (
-          <div className="p-5 text-sm text-zinc-600">{t('software.tests.none')}</div>
-        )}
-      </CardBody>
+    <>
+      <Card>
+        <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>{t('software.tests.title')}</CardTitle>
+          <div className="flex items-center gap-2">
+            <Tab type="UNIT" />
+            <Tab type="INTEGRATION" />
+            <div className="ml-1 text-xs text-zinc-600">{list.length}</div>
+            <Button size="sm" onClick={() => setIsAddMode(true)}>+ 시나리오 추가</Button>
+          </div>
+        </CardHeader>
+        <CardBody className="p-0">
+          {list.length > 0 ? (
+            <Table
+              columns={columns}
+              rows={list}
+              rowKey={(s) => s.id}
+              className="border-0"
+              onRowClick={(s) => setSelectedId(s.id)}
+            />
+          ) : (
+            <div className="p-5 text-sm text-zinc-600">{t('software.tests.none')}</div>
+          )}
+        </CardBody>
 
-      <Drawer
-        open={Boolean(selected)}
-        title={t('software.tests.drawer.title')}
-        subtitle={selected ? `${selected.id} | ${selected.type}` : undefined}
-        onClose={() => setSelectedId(undefined)}
-      >
-        {selected ? (
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.program')}</div>
-              <div className="mt-2 text-sm font-semibold text-zinc-900">
-                {(programById.get(selected.programId)?.code ?? selected.programId) + ' | ' + (programById.get(selected.programId)?.name ?? '-')}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.scenario')}</div>
-              <div className="mt-2 text-sm font-semibold text-zinc-900">{selected.title}</div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Drawer
+          open={Boolean(selected)}
+          title={t('software.tests.drawer.title')}
+          subtitle={selected ? `${selected.id} | ${selected.type}` : undefined}
+          onClose={() => setSelectedId(undefined)}
+        >
+          {selected ? (
+            <div className="space-y-3">
               <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.status')}</div>
-                <select
-                  className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm"
-                  value={selected.status}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-                    const next = e.target.value as TestScenarioStatus
-                    const executedDate = next === 'EXECUTED' && !selected.executedDate ? new Date().toISOString().slice(0, 10) : selected.executedDate
-                    updateSelected({ status: next, executedDate })
-                  }}
-                >
-                  <option value="DRAFT">DRAFT</option>
-                  <option value="READY">READY</option>
-                  <option value="EXECUTED">EXECUTED</option>
-                </select>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.program')}</div>
+                <div className="mt-2 text-sm font-semibold text-zinc-900">
+                  {(programById.get(selected.programId)?.code ?? selected.programId) + ' | ' + (programById.get(selected.programId)?.name ?? '-')}
+                </div>
               </div>
 
               <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.result')}</div>
-                <select
-                  className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm"
-                  value={selected.result}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-                    const next = e.target.value as TestResult
-                    updateSelected({ result: next })
-                  }}
-                >
-                  <option value="NA">NA</option>
-                  <option value="PASS">PASS</option>
-                  <option value="FAIL">FAIL</option>
-                  <option value="BLOCKED">BLOCKED</option>
-                </select>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.scenario')}</div>
+                <div className="mt-2 text-sm font-semibold text-zinc-900">{selected.title}</div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-zinc-200 bg-white p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.status')}</div>
+                  <select
+                    className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm"
+                    value={selected.status}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                      const next = e.target.value as TestScenarioStatus
+                      const executedDate = next === 'EXECUTED' && !selected.executedDate ? new Date().toISOString().slice(0, 10) : selected.executedDate
+                      updateSelected({ status: next, executedDate })
+                    }}
+                  >
+                    <option value="DRAFT">DRAFT</option>
+                    <option value="READY">READY</option>
+                    <option value="EXECUTED">EXECUTED</option>
+                  </select>
+                </div>
+
+                <div className="rounded-2xl border border-zinc-200 bg-white p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.result')}</div>
+                  <select
+                    className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm"
+                    value={selected.result}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                      const next = e.target.value as TestResult
+                      updateSelected({ result: next })
+                    }}
+                  >
+                    <option value="NA">NA</option>
+                    <option value="PASS">PASS</option>
+                    <option value="FAIL">FAIL</option>
+                    <option value="BLOCKED">BLOCKED</option>
+                  </select>
+                </div>
+
+                <div className="rounded-2xl border border-zinc-200 bg-white p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.intake')}</div>
+                  <select
+                    className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm"
+                    value={selected.intakeStatus}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                      const next = e.target.value as IntakeStatus
+                      updateSelected({ intakeStatus: next })
+                    }}
+                  >
+                    <option value="PENDING">PENDING</option>
+                    <option value="RECEIVED">RECEIVED</option>
+                  </select>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.intake')}</div>
-                <select
-                  className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm"
-                  value={selected.intakeStatus}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-                    const next = e.target.value as IntakeStatus
-                    updateSelected({ intakeStatus: next })
-                  }}
-                >
-                  <option value="PENDING">PENDING</option>
-                  <option value="RECEIVED">RECEIVED</option>
-                </select>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.evidence')}</div>
+                <textarea
+                  className="mt-2 min-h-[96px] w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  value={selected.evidenceNote}
+                  onChange={(e) => updateSelected({ evidenceNote: e.target.value })}
+                />
+                <div className="mt-2 text-xs text-zinc-600">
+                  {t('software.tests.drawer.evidenceHint')}
+                </div>
               </div>
             </div>
+          ) : null}
+        </Drawer>
+      </Card>
 
-            <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.evidence')}</div>
-              <textarea
-                className="mt-2 min-h-[96px] w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
-                value={selected.evidenceNote}
-                onChange={(e) => updateSelected({ evidenceNote: e.target.value })}
-              />
-              <div className="mt-2 text-xs text-zinc-600">
-                {t('software.tests.drawer.evidenceHint')}
-              </div>
+      <Drawer open={isAddMode} onClose={() => setIsAddMode(false)} title="신규 테스트 시나리오 등록">
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">대상 프로그램</label>
+            <select className="w-full p-2 border rounded-md dark:bg-slate-800">
+              {programs.map(p => <option key={p.id} value={p.id}>{p.code} | {p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">시나리오 제목</label>
+            <input className="w-full p-2 border rounded-md dark:bg-slate-800" placeholder="e.g. 정상 로그인 테스트" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">테스트 구분</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2"><input type="radio" name="testType" defaultChecked /> 단위(UNIT)</label>
+              <label className="flex items-center gap-2"><input type="radio" name="testType" /> 통합(INT)</label>
             </div>
           </div>
-        ) : null}
+          <div className="flex justify-end gap-2 mt-6">
+            <Button variant="outline" onClick={() => setIsAddMode(false)}>취소</Button>
+            <Button onClick={() => { alert('시나리오가 등록되었습니다'); setIsAddMode(false); }}>등록하기</Button>
+          </div>
+        </div>
       </Drawer>
-    </Card>
+    </>
   )
 }

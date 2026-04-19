@@ -14,7 +14,7 @@ export const dict = {
     'login.demoPath': 'Recommended demo path: /login -> /exec -> project detail',
 
     'nav.product': 'PMS',
-    'nav.execDemo': 'Executive Demo',
+    'nav.execDemo': 'PMS-SI',
     'nav.section.exec': 'Executive',
     'nav.exec.portfolio': 'Portfolio Dashboard',
     'nav.exec.risks': 'Risk Board',
@@ -165,7 +165,7 @@ export const dict = {
     'login.demoPath': '권장 시연 경로: /login -> /exec -> 프로젝트 상세',
 
     'nav.product': 'PMS',
-    'nav.execDemo': '임원 설득 데모',
+    'nav.execDemo': 'PMS-SI',
     'nav.section.exec': 'Executive',
     'nav.exec.portfolio': '포트폴리오 대시보드',
     'nav.exec.risks': '리스크 보드',
