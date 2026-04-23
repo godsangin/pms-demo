@@ -12,6 +12,7 @@ export const projectsSeed: LocalizedProject[] = [
       ko: '온누리상품권 소비데이터 고도화 및 서비스 최적화 사업',
     },
     pmName: 'S. I. Lee',
+    pmId: '00000000-0000-0000-0000-000000000002', // seeroo
     startDate: '2026-02-23',
     endDate: '2026-12-18',
     status: 'GREEN',

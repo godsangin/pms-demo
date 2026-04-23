@@ -4,6 +4,7 @@ import type { LocalizedDeliverable, LocalizedTask, LocalizedText } from '@/mocks
 import type { Lang } from '@/shared/i18n/dict'
 import { sleep } from '@/shared/lib/sleep'
 import type { DeliverableItem, ProgressPoint, ProjectDetail, ProjectTask } from '@/shared/types/pms'
+import { getCurrentUser } from '@/shared/lib/role'
 
 function pickText(text: LocalizedText, lang: Lang) {
   return lang === 'ko' ? text.ko : text.en
@@ -16,13 +17,20 @@ export async function fetchProjectDetail(projectId: string, lang: Lang): Promise
   }
 
   await sleep(220)
+  const user = getCurrentUser()
   const project = db.projects.find((p) => p.id === projectId)
+  
   if (!project) throw new Error(`Project not found: ${projectId}`)
+
+  // 가중치 합산 진척률 계산 (CSV 데이터 기반)
+  const phases = db.phases.filter(p => p.projectId === projectId)
+  const totalProgress = phases.reduce((sum, p) => sum + (p.progressRate * p.weight / 100), 0)
 
   const mappedProject = {
     ...project,
     name: pickText(project.name, lang),
     description: pickText(project.description, lang),
+    totalProgress: parseFloat(totalProgress.toFixed(2)),
     nextMilestone: {
       name: pickText(project.nextMilestone.name, lang),
       date: project.nextMilestone.date,
@@ -31,6 +39,10 @@ export async function fetchProjectDetail(projectId: string, lang: Lang): Promise
 
   const risks = db.risks
     .filter((r) => r.projectId === projectId)
+    .filter((r) => {
+      if (!user || user.role === 'ADMIN') return true
+      return r.ownerId === user.id || project.pmId === user.id
+    })
     .map((r) => {
       return {
         ...r,
@@ -41,7 +53,17 @@ export async function fetchProjectDetail(projectId: string, lang: Lang): Promise
       }
     })
 
-  return { project: mappedProject, risks }
+  return { 
+    project: mappedProject, 
+    risks,
+    phases: phases.map(p => ({
+      id: p.id,
+      type: p.phaseType,
+      name: p.name,
+      weight: p.weight,
+      progressRate: p.progressRate
+    }))
+  }
 }
 
 export async function fetchProjectProgress(projectId: string): Promise<ProgressPoint[]> {
@@ -63,12 +85,24 @@ export async function fetchProjectTasks(projectId: string, lang: Lang): Promise<
   }
 
   await sleep(200)
+  const user = getCurrentUser()
   const items = db.tasksByProjectId[projectId]
   if (!items) throw new Error(`Tasks not found: ${projectId}`)
-  return (items as LocalizedTask[]).map((t) => ({
-    ...t,
-    name: pickText(t.name, lang),
-  }))
+
+  // 개발 단계(Phase 3)의 경우 프로그램 시드 데이터를 합쳐서 반환
+  const programs = db.programsByProjectId[projectId] || []
+  const allTasks = [...(items as LocalizedTask[]), ...programs]
+
+  return allTasks
+    .filter((t) => {
+      if (!user || user.role === 'ADMIN') return true
+      const project = db.projects.find(p => p.id === projectId)
+      return t.managerId === user.id || (project && project.pmId === user.id)
+    })
+    .map((t) => ({
+      ...t,
+      name: (t as any).name.ko ? pickText((t as any).name, lang) : t.name as string,
+    }))
 }
 
 export async function fetchProjectDeliverables(projectId: string, lang: Lang): Promise<DeliverableItem[]> {

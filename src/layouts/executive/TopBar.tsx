@@ -1,5 +1,6 @@
 import { Button } from '@/shared/ui/Button'
 import { useI18n } from '@/shared/i18n/I18nProvider'
+import { getCurrentUser } from '@/shared/lib/role'
 
 export function TopBar({
   title,
@@ -11,6 +12,7 @@ export function TopBar({
   onLogout: () => void
 }) {
   const { lang, setLang, t } = useI18n()
+  const user = getCurrentUser()
 
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
@@ -20,6 +22,12 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-2">
+        {user && (
+          <div className="mr-2 text-xs font-medium text-zinc-700">
+            <span className="text-zinc-400 mr-1">{user.role === 'ADMIN' ? '관리자' : '담당자'}:</span>
+            {user.fullName}
+          </div>
+        )}
         <div className="hidden items-center rounded-xl border border-zinc-200 bg-white p-1 sm:flex">
           <button
             type="button"
