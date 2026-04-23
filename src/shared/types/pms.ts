@@ -1,3 +1,17 @@
+export type Role = 'ADMIN' | 'USER'
+
+export type User = {
+  id: string
+  username: string
+  fullName: string
+  orgName?: string
+  role: Role
+}
+
+export type TaskCategory = 'MILESTONE' | 'PERIODIC' | 'DELIVERABLE' | 'PROGRAM' | 'SCENARIO' | 'COMMON'
+
+export type DefectStatus = '조치예정' | '조치 중' | '조치완료'
+
 export type StatusSignal = 'GREEN' | 'YELLOW' | 'RED'
 
 export type RiskSeverity = 'MEDIUM' | 'HIGH' | 'CRITICAL'
@@ -14,9 +28,11 @@ export type ProjectListItem = {
   name: string
   description: string
   pmName: string
+  pmId?: string
   startDate: string
   endDate: string
   status: StatusSignal
+  totalProgress: number
   svThisWeek: number
   nextMilestone: Milestone
   highRiskCount: number
@@ -31,6 +47,7 @@ export type RiskItem = {
   status: RiskStatus
   title: string
   owner: string
+  ownerId?: string
   cause: string
   action: string
   expectedImpact: string
@@ -40,109 +57,49 @@ export type RiskItem = {
 export type ProjectTask = {
   id: string
   projectId: string
-  wbsCode: string
-  depth: number
+  phaseId: number
+  category: TaskCategory
   name: string
-  weight: number
+  orgName: string
+  managerId: string
   progressPct: number
-  baselineStart: string
-  baselineEnd: string
-  actualStart?: string
-  actualEnd?: string
+  isRequiredDeliverable: boolean
+  startDate: string
+  endDate: string
+  status: string
 }
 
-export type DeliverableStatus = 'PLANNED' | 'SUBMITTED' | 'ACCEPTED' | 'REJECTED' | 'NOT_SUBMITTED'
-
-export type DeliveryStage = 'ANALYSIS_DESIGN' | 'DEVELOPMENT' | 'TEST' | 'DEPLOYMENT'
+export type DefectItem = {
+  id: string
+  taskId: string
+  title: string
+  description?: string
+  status: DefectStatus
+  severity: string
+  reporterId: string
+  assigneeId: string
+  createdAt: string
+}
 
 export type DeliverableItem = {
   id: string
-  projectId: string
-  title: string
-  status: DeliverableStatus
-  stage?: DeliveryStage
-  dueDate: string
-  submittedDate?: string
-  decidedDate?: string
-  attachment?: {
-    name: string
-    url: string
-    uploadedAt: string
-  }
-  tailoringHistory?: {
-    id: string
-    type: 'ADD' | 'REMOVE' | 'MODIFY'
-    reason: string
-    date: string
-    author: string
-  }[]
-}
-
-export type ProgramStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED'
-
-export type ProgramItem = {
-  id: string
-  projectId: string
-  code: string
+  taskId: string
   name: string
-  owner: string
-  status: ProgramStatus
-  progressPct: number
-  baselineStart: string
-  baselineEnd: string
-  actualStart?: string
-  actualEnd?: string
-}
-
-export type TestType = 'UNIT' | 'INTEGRATION'
-
-export type TestScenarioStatus = 'DRAFT' | 'READY' | 'EXECUTED'
-
-export type TestResult = 'PASS' | 'FAIL' | 'BLOCKED' | 'NA'
-
-export type IntakeStatus = 'PENDING' | 'RECEIVED'
-
-export type TestScenario = {
-  id: string
-  projectId: string
-  programId: string
-  type: TestType
-  title: string
-  status: TestScenarioStatus
-  result: TestResult
-  owner: string
-  evidenceNote: string
-  intakeStatus: IntakeStatus
-  executedDate?: string
-}
-
-export type StageProgress = {
-  projectId: string
-  stage: DeliveryStage
-  plannedPct: number
-  actualPct: number
-}
-
-export type PortfolioKpis = {
-  totalProjects: number
-  inProgressProjects: number
-  onTrackPercent: number
-  atRiskProjects: number
-  criticalTasks: number
-  deliverableApprovalRate: number
-  portfolioSvAvg: number
-}
-
-export type PortfolioDashboard = {
-  asOfDate: string
-  kpis: PortfolioKpis
-  projects: ProjectListItem[]
-  topRisks: RiskItem[]
+  filePath?: string
+  linkUrl?: string
+  uploadedAt: string
 }
 
 export type ProjectDetail = {
   project: ProjectListItem
   risks: RiskItem[]
+  phases: {
+    id: number
+    type: string
+    name: string
+    weight: number
+    progressRate: number
+  }[]
 }
 
 export type ProgressPoint = {
