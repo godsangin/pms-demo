@@ -59,7 +59,6 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
       cell: (d) => (
         <div className="leading-tight">
           <div className="font-semibold text-zinc-900">{d.title}</div>
-          <div className="mt-0.5 text-xs text-zinc-600">{d.id}</div>
         </div>
       ),
     },
@@ -198,9 +197,10 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
 
             {selectedId && (
               <DeliverableUpload 
+                projectId={projectId}
                 deliverableId={selectedId} 
-                onUploadSuccess={(info) => {
-                  console.log('Upload success:', info);
+                onUploadSuccess={() => {
+                  console.log('Upload success');
                 }} 
               />
             )}

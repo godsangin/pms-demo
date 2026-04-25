@@ -140,14 +140,13 @@ export function ExecRisksBoardPage() {
       <Drawer
         open={Boolean(selected)}
         title={t('risksBoard.drawer.title')}
-        subtitle={selected ? `${selected.project.name} | ${selected.risk.id}` : undefined}
+        subtitle={selected ? selected.project.name : undefined}
         onClose={() => setSelectedRiskId(undefined)}
       >
         {selected ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-xs font-semibold text-zinc-600">{selected.project.id}</div>
                 <div className="mt-1 truncate text-lg font-semibold tracking-tight text-zinc-900">
                   {selected.risk.title}
                 </div>

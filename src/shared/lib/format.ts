@@ -11,11 +11,13 @@ export function formatIsoDate(iso: string | undefined | null) {
   return iso.slice(0, 10)
 }
 
-export function formatPercent(value: number, digits = 0) {
+export function formatPercent(value: number | undefined | null, digits = 0) {
+  if (value === undefined || value === null) return '0%'
   return `${value.toFixed(digits)}%`
 }
 
-export function formatSignedPercent(value: number, digits = 0) {
+export function formatSignedPercent(value: number | undefined | null, digits = 0) {
+  if (value === undefined || value === null) return '0%'
   const sign = value > 0 ? '+' : value < 0 ? '' : ''
   return `${sign}${value.toFixed(digits)}%`
 }

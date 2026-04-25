@@ -7,10 +7,12 @@ import type { ProjectTask } from '@/shared/types/pms'
  */
 export function calculateWbsProgress(tasks: ProjectTask[]): ProjectTask[] {
   // 깊이가 깊은 노드부터 처리하기 위해 정렬
-  const taskMap = new Map<string, ProjectTask>(tasks.map((t) => [t.wbsCode, { ...t }]))
+  const taskMap = new Map<string, ProjectTask>(tasks.map((t) => [t.wbsCode || '', { ...t }]))
 
   // WBS Code 순서대로 정렬 (Project, Project 1, Project 1.1, ...)
   return Array.from(taskMap.values()).sort((a, b) => {
-    return a.wbsCode.localeCompare(b.wbsCode, undefined, { numeric: true, sensitivity: 'base' })
+    const codeA = a.wbsCode || ''
+    const codeB = b.wbsCode || ''
+    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
   })
 }

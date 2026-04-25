@@ -84,8 +84,8 @@ export function BaselineActualTimeline({ tasks }: { tasks: ProjectTask[] }) {
             const aRight = pos(task.actualEnd)
 
             const lateDays = dayDiff(task.actualEnd, task.baselineEnd)
-            const isRoot = task.depth === 0
-            const isParent = task.depth < 2
+            const isRoot = (task.depth ?? 0) === 0
+            const isParent = (task.depth ?? 0) < 2
 
             return (
               <div 
@@ -94,7 +94,7 @@ export function BaselineActualTimeline({ tasks }: { tasks: ProjectTask[] }) {
                   "group rounded-xl border border-transparent hover:border-zinc-200 hover:bg-zinc-50/50 transition-colors",
                   isRoot ? "bg-zinc-100/50 border-zinc-200" : ""
                 )}
-                style={{ marginLeft: `${task.depth * 12}px` }}
+                style={{ marginLeft: `${(task.depth ?? 0) * 12}px` }}
               >
                 <div className="flex items-center gap-3 p-2">
                   <div className="w-[280px] flex-shrink-0">
@@ -115,8 +115,8 @@ export function BaselineActualTimeline({ tasks }: { tasks: ProjectTask[] }) {
                         />
                       </div>
                       <span className="text-[10px] font-semibold text-zinc-500">{formatPercent(task.progressPct, 1)}</span>
-                      {task.weight > 0 && (
-                        <span className="text-[10px] text-zinc-400">({formatPercent(task.weight * 100, 1)})</span>
+                      {(task.weight ?? 0) > 0 && (
+                        <span className="text-[10px] text-zinc-400">({formatPercent((task.weight ?? 0) * 100, 1)})</span>
                       )}
                     </div>
                   </div>

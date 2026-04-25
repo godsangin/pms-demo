@@ -1,54 +1,50 @@
--- 1. 기본 사용자 생성
--- password: 'password123' (실제 운영환경에서는 강력한 해싱 필요)
-INSERT INTO users (id, username, password_hash, full_name, role)
-VALUES 
-    ('00000000-0000-0000-0000-000000000001', 'komsco', '$2b$12$ExYvX7U.zP.Z6S6X6X6X6uY6X6X6X6X6X6X6X6X6X6X6X6X6X6X6', '한국조폐공사 관리자', 'ADMIN'),
-    ('00000000-0000-0000-0000-000000000002', 'seeroo', '$2b$12$ExYvX7U.zP.Z6S6X6X6X6uY6X6X6X6X6X6X6X6X6X6X6X6X6X6X6', '시루 담당자', 'USER'),
-    ('00000000-0000-0000-0000-000000000003', 'dukn', '$2b$12$ExYvX7U.zP.Z6S6X6X6X6uY6X6X6X6X6X6X6X6X6X6X6X6X6X6X6', '덕은 담당자', 'USER'),
-    ('00000000-0000-0000-0000-000000000004', 'pytha', '$2b$12$ExYvX7U.zP.Z6S6X6X6X6uY6X6X6X6X6X6X6X6X6X6X6X6X6X6X6', '피타 담당자', 'USER'),
-    ('00000000-0000-0000-0000-000000000005', 'nice', '$2b$12$ExYvX7U.zP.Z6S6X6X6X6uY6X6X6X6X6X6X6X6X6X6X6X6X6X6X6', '나이스 담당자', 'USER');
+-- ONDA Project Initial Seed Data (Fixed UUID version)
 
--- 2. 샘플 프로젝트 생성
-INSERT INTO projects (id, name, description, pm_id, start_date, end_date, total_progress)
-VALUES (
-    'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 
-    '대외계 인터페이스 시스템 고도화', 
-    'MSA 아키텍처 기반의 차세대 대외계 인터페이스 구축 프로젝트', 
-    '00000000-0000-0000-0000-000000000001',
-    CURRENT_DATE - INTERVAL '30 days', 
-    CURRENT_DATE + INTERVAL '120 days',
-    45.00
-);
+-- 기존 데이터 정리 (개발용)
+DELETE FROM deliverables;
+DELETE FROM defects;
+DELETE FROM tasks;
+DELETE FROM phases;
+DELETE FROM projects;
+DELETE FROM users;
 
--- 3. 프로젝트 단계(Phases) 생성
-INSERT INTO phases (project_id, phase_type, name, weight, progress_rate, sort_order)
-VALUES 
-    ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'MANAGEMENT', '사업관리', 10.00, 100.00, 1),
-    ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'ANALYSIS', '분석/설계', 30.00, 80.00, 2),
-    ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'DEVELOPMENT', '개발/테스트', 40.00, 20.00, 3),
-    ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'INTEGRATION', '통합테스트', 15.00, 0.00, 4),
-    ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'TRANSITION', '이행', 5.00, 0.00, 5);
+-- 1. 사용자 (기본 관리자 및 담당자)
+INSERT INTO users (id, username, password_hash, full_name, org_name, role) VALUES
+('00000000-0000-0000-0000-000000000001', 'admin', 'password_hash_here', '관리자', '한국조폐공사', 'ADMIN'),
+('00000000-0000-0000-0000-000000000002', 'isangin', 'password_hash_here', '이상인', '한국조폐공사', 'EXEC'),
+('00000000-0000-0000-0000-000000000003', 'jsjeong', 'password_hash_here', '정진솔', '더큰소프트', 'USER');
 
--- 4. 샘플 테스크(Tasks) 생성
-INSERT INTO tasks (phase_id, name, org_name, manager_id, progress_rate, task_type, start_date, end_date, status)
-SELECT 
-    id, '상세 설계서 작성', 'KOMSCO', '00000000-0000-0000-0000-000000000002', 100.00, 'REPORT', CURRENT_DATE - INTERVAL '20 days', CURRENT_DATE - INTERVAL '10 days', 'COMPLETED'
-FROM phases WHERE phase_type = 'ANALYSIS';
+-- 2. 프로젝트 (UUID 형식 준수)
+INSERT INTO projects (id, name, description, pm_id, start_date, end_date, status, total_progress, sv_this_week) VALUES
+('00000000-0000-0000-0000-000000002026', '온누리상품권 홈페이지 소비데이터 고도화 사업', '온누리상품권 소비데이터 고도화 및 서비스 최적화 프로젝트', '00000000-0000-0000-0000-000000000002', '2026-02-23', '2026-12-18', 'GREEN', 12.16, 4.5);
 
-INSERT INTO tasks (phase_id, name, org_name, manager_id, progress_rate, task_type, start_date, end_date, status)
-SELECT 
-    id, 'API 게이트웨이 개발', 'SEEROO', '00000000-0000-0000-0000-000000000002', 30.00, 'PROGRAM', CURRENT_DATE - INTERVAL '5 days', CURRENT_DATE + INTERVAL '15 days', 'IN_PROGRESS'
-FROM phases WHERE phase_type = 'DEVELOPMENT';
+-- 3. 프로젝트 단계 (Phases)
+INSERT INTO phases (project_id, phase_type, name, weight, progress_rate, sort_order) VALUES
+('00000000-0000-0000-0000-000000002026', 'MANAGEMENT', '프로젝트관리', 10.00, 13.13, 1),
+('00000000-0000-0000-0000-000000002026', 'ANALYSIS', '분석/설계', 30.00, 36.15, 2),
+('00000000-0000-0000-0000-000000002026', 'DEVELOPMENT', '개발', 40.00, 5.00, 3),
+('00000000-0000-0000-0000-000000002026', 'TEST', '테스트', 15.00, 0.00, 4),
+('00000000-0000-0000-0000-000000002026', 'TRANSITION', '이행', 5.00, 0.00, 5);
 
--- 5. 샘플 리스크 생성
-INSERT INTO risks (project_id, title, severity, status, owner_id, cause, action_plan, target_date)
-VALUES (
-    'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
-    '인터페이스 규격 지연',
-    'HIGH',
-    'OPEN',
-    '00000000-0000-0000-0000-000000000003',
-    '유관기관 협의 지연',
-    '주간 회의 시 쟁점 사항 보고 및 의사결정 요청',
-    CURRENT_DATE + INTERVAL '7 days'
-);
+-- 4. 주요 테스크 (WBS 기반)
+-- 프로젝트 관리 단계 테스크 (서브쿼리로 phase_id 조회)
+INSERT INTO tasks (phase_id, category, name, org_name, manager_id, progress_rate, wbs_code, depth, weight, baseline_start, baseline_end, status) VALUES
+((SELECT id FROM phases WHERE project_id = '00000000-0000-0000-0000-000000002026' AND phase_type = 'MANAGEMENT'), 'PERIODIC', '사업수행계획수립', '한국조폐공사', '00000000-0000-0000-0000-000000000002', 80.00, 'Project 1.2.1', 3, 0.50, '2026-03-03', '2026-03-20', 'IN_PROGRESS'),
+((SELECT id FROM phases WHERE project_id = '00000000-0000-0000-0000-000000002026' AND phase_type = 'MANAGEMENT'), 'PERIODIC', '주간업무보고', '한국조폐공사', '00000000-0000-0000-0000-000000000002', 25.00, 'Project 1.2.2', 3, 0.50, '2026-02-23', '2026-06-30', 'IN_PROGRESS'),
+((SELECT id FROM phases WHERE project_id = '00000000-0000-0000-0000-000000002026' AND phase_type = 'MANAGEMENT'), 'MILESTONE', '착수보고', '한국조폐공사', '00000000-0000-0000-0000-000000000002', 0.00, 'Project 1.3.1', 3, 0.25, '2026-04-01', '2026-04-01', 'READY');
+
+-- 분석/설계 단계 테스크
+INSERT INTO tasks (phase_id, category, name, org_name, manager_id, progress_rate, wbs_code, depth, weight, baseline_start, baseline_end, status) VALUES
+((SELECT id FROM phases WHERE project_id = '00000000-0000-0000-0000-000000002026' AND phase_type = 'ANALYSIS'), 'COMMON', '요구사항분석', '한국조폐공사', '00000000-0000-0000-0000-000000000002', 100.00, 'Project 2.1', 2, 0.10, '2026-03-02', '2026-03-20', 'COMPLETED'),
+((SELECT id FROM phases WHERE project_id = '00000000-0000-0000-0000-000000002026' AND phase_type = 'ANALYSIS'), 'DELIVERABLE', 'DB 설계서 작성', '한국조폐공사', '00000000-0000-0000-0000-000000000002', 45.00, 'Project 2.3.1', 3, 0.20, '2026-04-01', '2026-04-30', 'IN_PROGRESS');
+
+-- 5. 프로그램 목록 (개발 단계 테스크)
+INSERT INTO tasks (id, phase_id, category, name, org_name, manager_id, progress_rate, wbs_code, depth, weight, baseline_start, baseline_end, status) VALUES
+('00000000-0000-0000-0000-000000001001', (SELECT id FROM phases WHERE project_id = '00000000-0000-0000-0000-000000002026' AND phase_type = 'DEVELOPMENT'), 'PROGRAM', '행사 선별 관리 목록 화면', '더큰소프트', '00000000-0000-0000-0000-000000000003', 100.00, 'Project 3.1.1', 3, 0.01, '2026-04-06', '2026-04-10', 'DONE'),
+('00000000-0000-0000-0000-000000001002', (SELECT id FROM phases WHERE project_id = '00000000-0000-0000-0000-000000002026' AND phase_type = 'DEVELOPMENT'), 'PROGRAM', '행사 선별 관리 상세 화면', '더큰소프트', '00000000-0000-0000-0000-000000000003', 100.00, 'Project 3.1.2', 3, 0.01, '2026-04-11', '2026-04-15', 'DONE'),
+('00000000-0000-0000-0000-000000001003', (SELECT id FROM phases WHERE project_id = '00000000-0000-0000-0000-000000002026' AND phase_type = 'DEVELOPMENT'), 'PROGRAM', '가맹점 관리 AS-IS 분석', '더큰소프트', '00000000-0000-0000-0000-000000000003', 0.00, 'Project 3.2.1', 3, 0.01, '2026-04-10', '2026-04-20', 'READY');
+
+-- 6. 초기 산출물 데이터
+INSERT INTO deliverables (project_id, title, status, due_date, stage) VALUES
+('00000000-0000-0000-0000-000000002026', '사업수행계획서', 'ACCEPTED', '2026-03-20', 'ANALYSIS_DESIGN'),
+('00000000-0000-0000-0000-000000002026', '요구사항정의서', 'ACCEPTED', '2026-03-31', 'ANALYSIS_DESIGN');

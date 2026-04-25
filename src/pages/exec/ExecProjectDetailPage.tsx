@@ -9,11 +9,13 @@ import { DeliverablesIntakePanel } from '@/features/project/software/components/
 import { ProgramListPanel } from '@/features/project/software/components/ProgramListPanel'
 import { StageProgressPanel } from '@/features/project/software/components/StageProgressPanel'
 import { TestManagementPanel } from '@/features/project/software/components/TestManagementPanel'
+import { UnitTestMonitor } from '@/features/project/software/components/UnitTestMonitor'
 import {
   useProjectDeliverablesQuery,
   useProjectDetailQuery,
   useProjectProgressQuery,
   useProjectTasksQuery,
+  useProjectDefectsQuery,
 } from '@/features/project/hooks'
 import {
   useProgramsQuery,
@@ -39,6 +41,7 @@ export function ExecProjectDetailPage() {
   const stageProgressQuery = useStageProgressQuery(projectId)
   const programsQuery = useProgramsQuery(projectId, lang)
   const testScenariosQuery = useTestScenariosQuery(projectId, lang)
+  const defectsQuery = useProjectDefectsQuery(projectId)
   const { setTopBar } = useExecutiveTopBar()
 
   useEffect(() => {
@@ -88,7 +91,6 @@ export function ExecProjectDetailPage() {
   }
 
   const p = data.project
-  const isSoftwareBuild = p.id === 'P-1098' || p.id === 'P-2026'
 
   return (
     <div className="space-y-4">
@@ -97,8 +99,7 @@ export function ExecProjectDetailPage() {
           <div className="text-xs text-zinc-600">
             <Link to="/exec" className="font-semibold text-zinc-900 hover:underline">
               {t('project.breadcrumb.portfolio')}
-            </Link>{' '}
-            / <span className="font-semibold text-zinc-900">{p.id}</span>
+            </Link>
           </div>
           <div className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900">{p.name}</div>
           <div className="mt-1 text-sm text-zinc-600">{p.description}</div>
@@ -180,15 +181,32 @@ export function ExecProjectDetailPage() {
         </div>
       </div>
 
-      {progressQuery.data ? (
-        <ProgressTrendChart points={progressQuery.data} />
-      ) : (
-        <Card>
-          <CardBody>
-            <div className="text-sm text-zinc-600">{t('app.loadingChart')}</div>
-          </CardBody>
-        </Card>
-      )}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-8">
+          {progressQuery.data ? (
+            <ProgressTrendChart points={progressQuery.data} />
+          ) : (
+            <Card className="h-[300px] flex items-center justify-center">
+              <div className="text-sm text-zinc-600">{t('app.loadingChart')}</div>
+            </Card>
+          )}
+        </div>
+        <div className="xl:col-span-4">
+          {stageProgressQuery.data ? (
+            <StageProgressPanel 
+              deliverables={deliverablesQuery.data || []}
+              programs={(programsQuery.data as any) || []}
+              scenarios={testScenariosQuery.data || []}
+            />
+          ) : (
+            <Card>
+              <CardBody>
+                <div className="text-sm text-zinc-600">{t('app.loading')}</div>
+              </CardBody>
+            </Card>
+          )}
+        </div>
+      </div>
 
       {tasksQuery.data ? (
         <BaselineActualTimeline tasks={tasksQuery.data} />
@@ -203,71 +221,58 @@ export function ExecProjectDetailPage() {
         </Card>
       )}
 
-      {isSoftwareBuild && deliverablesQuery.data ? <DeliverablesIntakePanel items={deliverablesQuery.data} /> : null}
+      {deliverablesQuery.data && <DeliverablesIntakePanel items={deliverablesQuery.data} />}
 
-      {isSoftwareBuild ? (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          <div className="xl:col-span-6">
-            {stageProgressQuery.data ? (
-              <StageProgressPanel 
-                stages={stageProgressQuery.data} 
-                deliverables={deliverablesQuery.data}
-                programs={programsQuery.data}
-              />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('software.stageProgress.title')}</CardTitle>
-                </CardHeader>
-                <CardBody>
-                  <div className="text-sm text-zinc-600">{t('app.loading')}</div>
-                </CardBody>
-              </Card>
-            )}
-          </div>
-          <div className="xl:col-span-6">
-            {programsQuery.data ? (
-              <ProgramListPanel programs={programsQuery.data} />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('software.programs.title')}</CardTitle>
-                </CardHeader>
-                <CardBody>
-                  <div className="text-sm text-zinc-600">{t('app.loading')}</div>
-                </CardBody>
-              </Card>
-            )}
-          </div>
-          <div className="xl:col-span-12">
-            {programsQuery.data && testScenariosQuery.data ? (
-              <TestManagementPanel projectId={p.id} programs={programsQuery.data} scenarios={testScenariosQuery.data} />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('software.tests.title')}</CardTitle>
-                </CardHeader>
-                <CardBody>
-                  <div className="text-sm text-zinc-600">{t('app.loading')}</div>
-                </CardBody>
-              </Card>
-            )}
-          </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {deliverablesQuery.data ? (
+          <DeliverablesTable items={deliverablesQuery.data} />
+        ) : (
+          <Card>
+            <CardHeader><CardTitle>{t('deliverables.title')}</CardTitle></CardHeader>
+            <CardBody><div className="text-sm text-zinc-600">{t('app.loading')}</div></CardBody>
+          </Card>
+        )}
+
+        <UnitTestMonitor 
+          programs={tasksQuery.data?.filter(t => t.category === 'PROGRAM') || []}
+          defects={defectsQuery.data || []}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-6">
+          {programsQuery.data ? (
+            <ProgramListPanel programs={programsQuery.data as any} />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('software.programs.title')}</CardTitle>
+              </CardHeader>
+              <CardBody>
+                <div className="text-sm text-zinc-600">{t('app.loading')}</div>
+              </CardBody>
+            </Card>
+          )}
         </div>
-      ) : null}
-
-      {!isSoftwareBuild && deliverablesQuery.data ? <DeliverablesTable items={deliverablesQuery.data} /> : null}
-
-      {!isSoftwareBuild && !deliverablesQuery.data ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('deliverables.title')}</CardTitle>
-          </CardHeader>
-          <CardBody>
-            <div className="text-sm text-zinc-600">{t('app.loading')}</div>
-          </CardBody>
-        </Card>
-      ) : null}
+        <div className="xl:col-span-6">
+          {testScenariosQuery.data ? (
+            <TestManagementPanel 
+              projectId={p.id} 
+              programs={(programsQuery.data as any) || []} 
+              scenarios={testScenariosQuery.data} 
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('software.tests.title')}</CardTitle>
+              </CardHeader>
+              <CardBody>
+                <div className="text-sm text-zinc-600">{t('app.loading')}</div>
+              </CardBody>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

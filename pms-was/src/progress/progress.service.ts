@@ -1,69 +1,109 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { differenceInDays } from 'date-fns';
 
 @Injectable()
 export class ProgressService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * 프로젝트 총 진척률 계산 및 업데이트
+   * 프로젝트 전체 진척률 재계산 (가중치 기반)
+   * 정책: Σ(단계별 진척률 * 단계별 가중치 / 100)
    */
-  async updateProjectTotalProgress(projectId: string) {
-    const phases = await this.prisma.phase.findMany({
-      where: { projectId },
-    });
+  async recalculateProjectTotalProgress(projectId: string) {
+    // 1. 각 단계별 진척률 먼저 업데이트
+    const phases = await this.prisma.phase.findMany({ where: { project_id: projectId } });
+    
+    for (const phase of phases) {
+      await this.updateSpecificPhaseProgress(phase.id, phase.phase_type);
+    }
 
-    const totalProgress = phases.reduce((sum, phase) => {
-      return sum + (Number(phase.progressRate) * Number(phase.weight) / 100);
+    // 2. 업데이트된 단계별 데이터 다시 조회
+    const updatedPhases = await this.prisma.phase.findMany({ where: { project_id: projectId } });
+
+    // 3. 가중치 합산 계산
+    const totalProgress = updatedPhases.reduce((sum, phase) => {
+      const weight = Number(phase.weight || 0);
+      const rate = Number(phase.progress_rate || 0);
+      return sum + (rate * weight / 100);
     }, 0);
 
+    // 4. 프로젝트 테이블 업데이트
     return this.prisma.project.update({
       where: { id: projectId },
-      data: { totalProgress: parseFloat(totalProgress.toFixed(2)) },
+      data: { total_progress: parseFloat(totalProgress.toFixed(2)) },
     });
   }
 
   /**
-   * 테스크별 진척률 유효성 검사 및 자동 산정
+   * 단계별 특화 진척률 산정 로직
    */
-  async calculateTaskProgress(taskId: string, inputProgress?: number): Promise<number> {
-    const task = await this.prisma.task.findUnique({ where: { id: taskId } });
-    if (!task) return 0;
+  private async updateSpecificPhaseProgress(phaseId: number, type: string) {
+    let progressRate = 0;
 
-    // 1. 사업관리 - 마일스톤 (0 또는 100만 허용)
-    if (task.category === 'MILESTONE') {
-      return inputProgress >= 100 ? 100 : 0;
+    switch (type) {
+      case 'ANALYSIS': // 30% - 산출물 기반
+        progressRate = await this.calculateDeliverableBasedProgress(phaseId);
+        break;
+      
+      case 'DEVELOPMENT': // 40% - 프로그램 목록 기반
+        progressRate = await this.calculateProgramBasedProgress(phaseId);
+        break;
+
+      case 'TEST': // 15% - 테스트 시나리오/통테 기반
+        progressRate = await this.calculateTestBasedProgress(phaseId);
+        break;
+
+      default: // MANAGEMENT(10%), TRANSITION(5%) - 일반 테스크 평균
+        progressRate = await this.calculateTaskAverageProgress(phaseId);
+        break;
     }
 
-    // 2. 사업관리 - 정기보고 (날짜 기준 자동 산정)
-    if (task.category === 'PERIODIC') {
-      const now = new Date();
-      const totalDays = differenceInDays(task.endDate, task.startDate);
-      const elapsedDays = differenceInDays(now, task.startDate);
-      const calculated = (elapsedDays / totalDays) * 100;
-      return Math.min(100, Math.max(0, parseFloat(calculated.toFixed(2))));
-    }
-
-    return inputProgress ?? task.progressRate;
-  }
-
-  /**
-   * 단계별 평균 진척률 업데이트 (분석/설계, 개발 등)
-   */
-  async updatePhaseProgress(phaseId: number) {
-    const tasks = await this.prisma.task.findMany({
-      where: { phaseId },
-    });
-
-    if (tasks.length === 0) return 0;
-
-    // 분석/설계의 경우 필수 산출물 대상만 평균 산출할 수도 있음
-    const avgProgress = tasks.reduce((sum, t) => sum + Number(t.progressRate), 0) / tasks.length;
-    
     return this.prisma.phase.update({
       where: { id: phaseId },
-      data: { progressRate: parseFloat(avgProgress.toFixed(2)) },
+      data: { progress_rate: parseFloat(progressRate.toFixed(2)) },
     });
+  }
+
+  // 분석/설계: 필수 산출물 승인 완료 기준
+  private async calculateDeliverableBasedProgress(phaseId: number): Promise<number> {
+    const tasks = await this.prisma.task.findMany({
+      where: { phase_id: phaseId, is_required_deliverable: true }
+    });
+    if (tasks.length === 0) return 0;
+    
+    // 필수 산출물 테스크 중 'COMPLETED' 또는 'DONE'인 비율
+    const completed = tasks.filter(t => t.status === 'COMPLETED' || t.status === 'DONE').length;
+    return (completed / tasks.length) * 100;
+  }
+
+  // 개발: 프로그램 목록의 개별 진척률 평균
+  private async calculateProgramBasedProgress(phaseId: number): Promise<number> {
+    const programs = await this.prisma.task.findMany({
+      where: { phase_id: phaseId, category: 'PROGRAM' }
+    });
+    if (programs.length === 0) return 0;
+
+    const sum = programs.reduce((acc, p) => acc + Number(p.progress_rate || 0), 0);
+    return sum / programs.length;
+  }
+
+  // 테스트: 테스트 시나리오 성공 비율
+  private async calculateTestBasedProgress(phaseId: number): Promise<number> {
+    const scenarios = await this.prisma.task.findMany({
+      where: { phase_id: phaseId, category: 'SCENARIO' }
+    });
+    if (scenarios.length === 0) return 0;
+
+    // 성공(PASS)으로 표시된 시나리오 비율
+    const passed = scenarios.filter(s => s.test_result === 'PASS').length;
+    return (passed / scenarios.length) * 100;
+  }
+
+  // 일반: 테스크 진척률 산술 평균
+  private async calculateTaskAverageProgress(phaseId: number): Promise<number> {
+    const tasks = await this.prisma.task.findMany({ where: { phase_id: phaseId } });
+    if (tasks.length === 0) return 0;
+    const sum = tasks.reduce((acc, t) => acc + Number(t.progress_rate || 0), 0);
+    return sum / tasks.length;
   }
 }

@@ -19,20 +19,22 @@ function KpiCard({ label, value }: { label: string; value: string }) {
 export function KpiGrid({ kpis }: { kpis: PortfolioKpis }) {
   const { t } = useI18n()
 
+  if (!kpis) return null
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
       <KpiCard
         label={t('dashboard.kpi.projectsInProgress')}
-        value={`${kpis.totalProjects} / ${kpis.inProgressProjects}`}
+        value={`${kpis.totalProjects || 0} / ${kpis.inProgressProjects || 0}`}
       />
-      <KpiCard label={t('dashboard.kpi.onTrackPct')} value={formatPercent(kpis.onTrackPercent, 0)} />
-      <KpiCard label={t('dashboard.kpi.atRiskProjects')} value={String(kpis.atRiskProjects)} />
-      <KpiCard label={t('dashboard.kpi.criticalTasks')} value={String(kpis.criticalTasks)} />
+      <KpiCard label={t('dashboard.kpi.onTrackPct')} value={formatPercent(kpis.onTrackPercent || 0, 0)} />
+      <KpiCard label={t('dashboard.kpi.atRiskProjects')} value={String(kpis.atRiskProjects || 0)} />
+      <KpiCard label={t('dashboard.kpi.criticalTasks')} value={String(kpis.criticalTasks || 0)} />
       <KpiCard
         label={t('dashboard.kpi.approval')}
-        value={formatPercent(kpis.deliverableApprovalRate, 0)}
+        value={formatPercent(kpis.deliverableApprovalRate || 0, 0)}
       />
-      <KpiCard label={t('dashboard.kpi.portfolioSvAvg')} value={formatSignedPercent(kpis.portfolioSvAvg, 1)} />
+      <KpiCard label={t('dashboard.kpi.portfolioSvAvg')} value={formatSignedPercent(kpis.portfolioSvAvg || 0, 1)} />
     </div>
   )
 }

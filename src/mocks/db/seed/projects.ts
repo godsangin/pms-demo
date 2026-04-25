@@ -16,7 +16,9 @@ export const projectsSeed: LocalizedProject[] = [
     startDate: '2026-02-23',
     endDate: '2026-12-18',
     status: 'GREEN',
-    svThisWeek: 0.5,
+    totalProgress: 35.2,
+    svThisWeek: 4.5,
+
     nextMilestone: {
       name: { en: 'Prototype Demonstration', ko: '프로토타입 시연' },
       date: '2026-05-15',
