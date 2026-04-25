@@ -4,10 +4,14 @@ import {
   fetchPrograms,
   fetchStageProgress,
   fetchTestScenarios,
+  fetchDefects,
   registerProgramsBulk,
+  registerDeliverablesBulk,
   updateProgram,
+  createTask,
   updateDeliverableTailoring,
   createDeliverable,
+  uploadDeliverableFile,
 } from '@/features/project/software/api'
 import type { Lang } from '@/shared/i18n/dict'
 import type { ProgramItem, DeliverableItem } from '@/shared/types/pms'
@@ -24,6 +28,14 @@ export function useTestScenariosQuery(projectId: string, lang: Lang) {
   return useQuery({
     queryKey: ['software-test-scenarios', projectId, lang],
     queryFn: () => fetchTestScenarios(projectId, lang),
+    enabled: projectId.length > 0,
+  })
+}
+
+export function useDefectsQuery(projectId: string) {
+  return useQuery({
+    queryKey: ['project-defects', projectId],
+    queryFn: () => fetchDefects(projectId),
     enabled: projectId.length > 0,
   })
 }
@@ -47,6 +59,17 @@ export function useRegisterProgramsBulkMutation() {
   })
 }
 
+export function useRegisterDeliverablesBulkMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, deliverables }: { projectId: string; deliverables: any[] }) =>
+      registerDeliverablesBulk(projectId, deliverables),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['project-deliverables', variables.projectId] })
+    },
+  })
+}
+
 export function useUpdateProgramMutation() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -54,6 +77,21 @@ export function useUpdateProgramMutation() {
       updateProgram(projectId, programId, updates),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['software-programs', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['software-stage-progress', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-detail', variables.projectId] })
+    },
+  })
+}
+
+export function useCreateTaskMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, task }: { projectId: string; task: Partial<ProgramItem> }) =>
+      createTask(projectId, task),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['software-programs', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['software-stage-progress', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-detail', variables.projectId] })
     },
   })
 }
@@ -76,6 +114,19 @@ export function useCreateDeliverableMutation() {
       createDeliverable(projectId, deliverable),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project-deliverables', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-detail', variables.projectId] })
+    },
+  })
+}
+
+export function useUploadDeliverableFileMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, deliverableId, file }: { projectId: string; deliverableId: string; file: File }) =>
+      uploadDeliverableFile(projectId, deliverableId, file),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['project-deliverables', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-detail', variables.projectId] })
     },
   })
 }

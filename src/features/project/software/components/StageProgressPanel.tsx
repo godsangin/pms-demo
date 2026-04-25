@@ -1,89 +1,117 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/shared/ui/Card';
-import { Badge } from '@/shared/ui/Badge';
-import type { StageProgress, DeliverableItem, ProgramItem } from '@/shared/types/pms';
+import type { DeliverableItem, ProgramItem, TestScenario } from '@/shared/types/pms';
+import { cn } from '@/shared/lib/cn';
 
 interface StageProgressProps {
-  stages?: StageProgress[];
   deliverables?: DeliverableItem[];
   programs?: ProgramItem[];
+  scenarios?: TestScenario[];
 }
 
 export const StageProgressPanel: React.FC<StageProgressProps> = ({ 
   deliverables = [], 
-  programs = [] 
+  programs = [],
+  scenarios = []
 }) => {
-  // 연동 로직 시뮬레이션
+  // 1. 분석/설계: 전체 산출물 대비 '입고(SUBMITTED 이상)' 산출물 기준
   const calculateAnalysisProgress = () => {
     if (!deliverables || deliverables.length === 0) return 0;
-    const analysisDocs = deliverables.filter(d => d.stage === 'ANALYSIS_DESIGN');
-    if (analysisDocs.length === 0) return 0;
-    
-    const approved = analysisDocs.filter(d => d.status === 'ACCEPTED').length;
-    return (approved / analysisDocs.length) * 100;
+    // 입고된 것은 SUBMITTED, ACCEPTED, REJECTED 상태를 포함 (PLANNED/NOT_SUBMITTED 제외)
+    const received = deliverables.filter(d => 
+      d.status === 'SUBMITTED' || d.status === 'ACCEPTED' || d.status === 'REJECTED'
+    ).length;
+    return (received / deliverables.length) * 100;
   };
 
+  // 2. 개발: 프로그램 목록별 진척률의 평균 값
   const calculateDevProgress = () => {
     if (!programs || programs.length === 0) return 0;
     const total = programs.reduce((acc, p) => acc + (p.progressPct || 0), 0);
     return total / programs.length;
   };
 
+  // 3. 테스트: 전체 통합테스트 시나리오 대비 결과가 PASS인 시나리오 기준
+  const calculateTestProgress = () => {
+    const integrationScenarios = scenarios.filter(s => s.type === 'INTEGRATION');
+    if (integrationScenarios.length === 0) return 0;
+    
+    const passed = integrationScenarios.filter(s => s.result === 'PASS').length;
+    return (passed / integrationScenarios.length) * 100;
+  };
+
   const analysisProgress = calculateAnalysisProgress();
   const devProgress = calculateDevProgress();
-  const approvedCount = deliverables?.filter(d => d.status === 'ACCEPTED').length || 0;
+  const testProgress = calculateTestProgress();
+
+  const metrics = [
+    {
+      label: '분석 / 설계',
+      subLabel: '산출물 입고 기준',
+      progress: analysisProgress,
+      color: 'bg-blue-500',
+      textColor: 'text-blue-600',
+      detail: `입고 ${deliverables.filter(d => d.status !== 'PLANNED').length} / 전체 ${deliverables.length} 건`
+    },
+    {
+      label: '개발 구현',
+      subLabel: '프로그램 진척도 평균',
+      progress: devProgress,
+      color: 'bg-emerald-500',
+      textColor: 'text-emerald-600',
+      detail: `대상 ${programs.length}개 프로그램 목록 연동`
+    },
+    {
+      label: '테스트 / 검증',
+      subLabel: '통합테스트 PASS 기준',
+      progress: testProgress,
+      color: 'bg-indigo-500',
+      textColor: 'text-indigo-600',
+      detail: `PASS ${scenarios.filter(s => s.type === 'INTEGRATION' && s.result === 'PASS').length} / 전체 통합 ${scenarios.filter(s => s.type === 'INTEGRATION').length} 건`
+    }
+  ];
 
   return (
-    <Card className="p-4 min-h-[300px]">
-      <CardHeader className="flex justify-between items-center border-b pb-2 mb-4">
-        <CardTitle>WBS 진척 현황 (Baseline 연동)</CardTitle>
-        <Badge tone="yellow">SPI: 0.98 (On Schedule)</Badge>
+    <Card className="h-full border-zinc-200/60 shadow-sm">
+      <CardHeader className="border-b border-zinc-100/80 pb-3">
+        <CardTitle className="text-base font-bold text-zinc-900">단계별 자동 집계 현황</CardTitle>
       </CardHeader>
-      <CardBody className="space-y-6">
-        {/* 분석 단계 (산출물 연동) */}
-        <div>
-          <div className="flex justify-between text-sm mb-1">
-            <span className="font-semibold text-zinc-900">분석/설계 (산출물 기준)</span>
-            <span className="font-mono text-blue-600 font-bold">{analysisProgress.toFixed(1)}%</span>
+      <CardBody className="py-5 space-y-8">
+        {metrics.map((m, idx) => (
+          <div key={idx} className="group">
+            <div className="flex justify-between items-end mb-2">
+              <div>
+                <span className="text-sm font-bold text-zinc-900">{m.label}</span>
+                <span className="ml-2 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">{m.subLabel}</span>
+              </div>
+              <span className={cn("text-lg font-black tabular-nums tracking-tighter", m.textColor)}>
+                {m.progress.toFixed(1)}%
+              </span>
+            </div>
+            
+            <div className="relative w-full bg-zinc-100 h-3 rounded-full overflow-hidden shadow-inner border border-zinc-200/50">
+              <div 
+                className={cn("h-full transition-all duration-1000 ease-out rounded-full", m.color)} 
+                style={{ width: `${m.progress}%` }}
+              />
+            </div>
+            
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-[11px] text-zinc-500 font-medium">
+                {m.detail}
+              </p>
+              {m.progress === 100 && (
+                <span className="text-[10px] font-bold text-white bg-zinc-900 px-1.5 py-0.5 rounded uppercase tracking-tighter">Completed</span>
+              )}
+            </div>
           </div>
-          <div className="w-full bg-zinc-100 h-2 rounded-full overflow-hidden border border-zinc-200">
-            <div 
-              className="bg-blue-500 h-full transition-all duration-700 ease-out" 
-              style={{ width: `${analysisProgress}%` }}
-            />
-          </div>
-          <p className="text-[10px] text-zinc-500 mt-1.5 flex items-center gap-1">
-            <span className="w-1 h-1 rounded-full bg-zinc-400" />
-            산출물 승인 건수 연동 ( {approvedCount} / {deliverables?.length || 0} 건 )
-          </p>
-        </div>
+        ))}
 
-        {/* 개발 단계 (프로그램 연동) */}
-        <div>
-          <div className="flex justify-between text-sm mb-1">
-            <span className="font-semibold text-zinc-900">개발구현 (프로그램 목록 연동)</span>
-            <span className="font-mono text-green-600 font-bold">{devProgress.toFixed(1)}%</span>
-          </div>
-          <div className="w-full bg-zinc-100 h-2 rounded-full overflow-hidden border border-zinc-200">
-            <div 
-              className="bg-green-500 h-full transition-all duration-700 ease-out" 
-              style={{ width: `${devProgress}%` }}
-            />
-          </div>
-          <p className="text-[10px] text-zinc-500 mt-1.5 flex items-center gap-1">
-            <span className="w-1 h-1 rounded-full bg-zinc-400" />
-            프로그램별 고도화 진척률 가중 평균 반영 ( {programs?.length || 0} 개 프로그램 )
-          </p>
-        </div>
-
-        {/* 테스트 단계 (추후 보완) */}
-        <div className="opacity-60">
-          <div className="flex justify-between text-sm mb-1 text-zinc-500">
-            <span className="font-medium italic">단위/통합 테스트 (시나리오 연동 예정)</span>
-            <span className="font-mono font-bold">0%</span>
-          </div>
-          <div className="w-full bg-zinc-50 h-1.5 rounded-full overflow-hidden border border-zinc-100">
-            <div className="bg-zinc-300 h-full" style={{ width: '0%' }} />
+        {/* 종합 지수 (Optional) */}
+        <div className="pt-4 mt-2 border-t border-dashed border-zinc-200">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-xs font-bold text-zinc-500">실시간 데이터 정합성</span>
+            <span className="text-[10px] font-mono text-zinc-400">Checked: {new Date().toLocaleTimeString()}</span>
           </div>
         </div>
       </CardBody>

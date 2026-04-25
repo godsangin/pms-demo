@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import type { ProgramItem, ProgramStatus } from '@/shared/types/pms'
 import { useI18n } from '@/shared/i18n/I18nProvider'
@@ -8,7 +8,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Table, type Column } from '@/shared/ui/Table'
 import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
-import { useRegisterProgramsBulkMutation, useUpdateProgramMutation } from '../hooks'
+import { useRegisterProgramsBulkMutation, useUpdateProgramMutation, useCreateTaskMutation } from '../hooks'
 
 function parseIsoDateLocal(iso: string | undefined | null) {
   if (!iso) return null
@@ -24,10 +24,15 @@ function delayDays(baselineEnd: string | undefined | null, actualEnd: string | u
 }
 
 function statusTone(status: ProgramStatus) {
-  if (status === 'DONE') return 'green'
+  if (status === 'DONE' || status === 'COMPLETED') return 'green'
   if (status === 'BLOCKED') return 'red'
   if (status === 'IN_PROGRESS') return 'yellow'
   return 'zinc'
+}
+
+function toDateInputStr(iso: string | undefined | null) {
+  if (!iso) return ''
+  return iso.slice(0, 10)
 }
 
 export function ProgramListPanel({ programs }: { programs: ProgramItem[] }) {
@@ -37,16 +42,75 @@ export function ProgramListPanel({ programs }: { programs: ProgramItem[] }) {
   
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<ProgramItem | undefined>()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const bulkRegister = useRegisterProgramsBulkMutation()
   const updateProgram = useUpdateProgramMutation()
+  const createTask = useCreateTaskMutation()
 
-  const handleBatchRegister = () => {
-    if (window.confirm('기존 프로그램 목록의 모든 항목을 일괄 등록하시겠습니까?')) {
-      bulkRegister.mutate({ projectId, programs: [] }, {
-        onSuccess: (_res) => alert(`성공적으로 \${_res.registeredCount}개의 프로그램이 등록되었습니다.`)
+  const handleDownloadTemplate = () => {
+    const headers = ['code', 'name', 'owner', 'status', 'progressPct', 'baselineStart', 'baselineEnd', 'actualStart', 'actualEnd']
+    const sampleData = [
+      'API-001,사용자 로그인 API,홍길동,NOT_STARTED,0,2024-05-01,2024-05-10,,',
+      'WEB-001,메인 대시보드 개발,이순신,IN_PROGRESS,30,2024-05-05,2024-05-20,2024-05-06,'
+    ]
+    const csvContent = [headers.join(','), ...sampleData].join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'program_template.csv')
+    link.click()
+  }
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const text = event.target?.result as string
+      if (!text) return
+
+      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '')
+      if (lines.length < 2) {
+        alert('CSV 파일에 데이터가 없습니다.')
+        return
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim())
+      const data = lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim())
+        const obj: any = {}
+        headers.forEach((h, i) => {
+          obj[h] = values[i]
+        })
+        return {
+          code: obj.code,
+          name: obj.name,
+          owner: obj.owner,
+          status: (obj.status || 'NOT_STARTED') as ProgramStatus,
+          progressPct: Number(obj.progressPct || 0),
+          baselineStart: obj.baselineStart,
+          baselineEnd: obj.baselineEnd,
+          actualStart: obj.actualStart || undefined,
+          actualEnd: obj.actualEnd || undefined,
+        }
       })
+
+      if (window.confirm(`${data.length}개의 프로그램을 등록하시겠습니까?`)) {
+        bulkRegister.mutate({ projectId, programs: data }, {
+          onSuccess: (res) => {
+            alert(`성공적으로 ${res.registeredCount}개의 프로그램이 등록되었습니다.`)
+            if (fileInputRef.current) fileInputRef.current.value = ''
+          },
+          onError: (err) => {
+            alert(`등록 중 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+          }
+        })
+      }
     }
+    reader.readAsText(file)
   }
 
   const openRegister = () => {
@@ -122,9 +186,19 @@ export function ProgramListPanel({ programs }: { programs: ProgramItem[] }) {
           <CardTitle>{t('software.programs.title')}</CardTitle>
           <div className="flex items-center gap-2">
             <div className="text-xs text-zinc-600">{programs.length}</div>
-            <Button size="sm" variant="outline" onClick={handleBatchRegister} disabled={bulkRegister.isPending}>
-              일괄 등록
+            <Button size="sm" variant="outline" onClick={handleDownloadTemplate}>
+              서식 다운로드
             </Button>
+            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={bulkRegister.isPending}>
+              CSV 일괄 등록
+            </Button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept=".csv" 
+              onChange={handleCsvUpload} 
+            />
             <Button size="sm" onClick={openRegister}>+ 프로그램 등록</Button>
           </div>
         </CardHeader>
@@ -142,44 +216,59 @@ export function ProgramListPanel({ programs }: { programs: ProgramItem[] }) {
         onClose={() => setIsDrawerOpen(false)} 
         title={editingProgram ? "프로그램 수정" : "신규 프로그램 등록"}
       >
-        <form className="p-6 space-y-5" onSubmit={(e) => {
-          e.preventDefault();
-          const formData = new FormData(e.currentTarget);
-          const updates = Object.fromEntries(formData.entries());
-          
-          if (editingProgram) {
-            updateProgram.mutate({ 
-              projectId, 
-              programId: editingProgram.id, 
-              updates: {
-                ...updates,
-                progressPct: Number(updates.progressPct)
-              } as any 
-            }, {
-              onSuccess: () => {
-                alert('수정되었습니다');
-                setIsDrawerOpen(false);
-              }
-            });
-          } else {
-            alert('등록되었습니다');
-            setIsDrawerOpen(false);
-          }
-        }}>
+        <form 
+          key={editingProgram?.id || 'new'}
+          className="p-6 space-y-5" 
+          onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const updates = Object.fromEntries(formData.entries());
+            
+            if (editingProgram) {
+              updateProgram.mutate({ 
+                projectId, 
+                programId: editingProgram.id, 
+                updates: {
+                  ...updates,
+                  progressPct: Number(updates.progressPct)
+                } as any 
+              }, {
+                onSuccess: () => {
+                  alert('수정되었습니다');
+                  setIsDrawerOpen(false);
+                }
+              });
+            } else {
+              createTask.mutate({
+                projectId,
+                task: {
+                  ...updates,
+                  category: 'PROGRAM',
+                  progressPct: Number(updates.progressPct)
+                } as any
+              }, {
+                onSuccess: () => {
+                  alert('등록되었습니다');
+                  setIsDrawerOpen(false);
+                }
+              });
+            }
+          }}
+        >
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-1">
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">프로그램 코드</label>
-              <input name="code" defaultValue={editingProgram?.code} required className="w-full p-2 border rounded-xl text-sm" placeholder="API-001" />
+              <input name="code" defaultValue={editingProgram?.code} required className="w-full p-2 border rounded-xl text-sm bg-white" placeholder="API-001" />
             </div>
             <div className="col-span-1">
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">담당자</label>
-              <input name="owner" defaultValue={editingProgram?.owner} required className="w-full p-2 border rounded-xl text-sm" placeholder="홍길동" />
+              <input name="owner" defaultValue={editingProgram?.owner} required className="w-full p-2 border rounded-xl text-sm bg-white" placeholder="홍길동" />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">프로그램 명</label>
-            <input name="name" defaultValue={editingProgram?.name} required className="w-full p-2 border rounded-xl text-sm" placeholder="사용자 인증 로직" />
+            <input name="name" defaultValue={editingProgram?.name} required className="w-full p-2 border rounded-xl text-sm bg-white" placeholder="사용자 인증 로직" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -189,12 +278,13 @@ export function ProgramListPanel({ programs }: { programs: ProgramItem[] }) {
                 <option value="NOT_STARTED">NOT_STARTED</option>
                 <option value="IN_PROGRESS">IN_PROGRESS</option>
                 <option value="DONE">DONE</option>
+                <option value="COMPLETED">COMPLETED</option>
                 <option value="BLOCKED">BLOCKED</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">진척률 (%)</label>
-              <input name="progressPct" type="number" min="0" max="100" defaultValue={editingProgram?.progressPct ?? 0} className="w-full p-2 border rounded-xl text-sm" />
+              <input name="progressPct" type="number" min="0" max="100" defaultValue={editingProgram?.progressPct ?? 0} className="w-full p-2 border rounded-xl text-sm bg-white" />
             </div>
           </div>
 
@@ -203,27 +293,27 @@ export function ProgramListPanel({ programs }: { programs: ProgramItem[] }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">계획 시작일</label>
-                <input name="baselineStart" type="date" defaultValue={editingProgram?.baselineStart} required className="w-full p-2 border rounded-xl text-sm" />
+                <input name="baselineStart" type="date" defaultValue={toDateInputStr(editingProgram?.baselineStart)} required className="w-full p-2 border rounded-xl text-sm bg-white" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">계획 종료일</label>
-                <input name="baselineEnd" type="date" defaultValue={editingProgram?.baselineEnd} required className="w-full p-2 border rounded-xl text-sm" />
+                <input name="baselineEnd" type="date" defaultValue={toDateInputStr(editingProgram?.baselineEnd)} required className="w-full p-2 border rounded-xl text-sm bg-white" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">실제 시작일</label>
-                <input name="actualStart" type="date" defaultValue={editingProgram?.actualStart} className="w-full p-2 border rounded-xl text-sm" />
+                <input name="actualStart" type="date" defaultValue={toDateInputStr(editingProgram?.actualStart)} className="w-full p-2 border rounded-xl text-sm bg-white" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">실제 종료일</label>
-                <input name="actualEnd" type="date" defaultValue={editingProgram?.actualEnd} className="w-full p-2 border rounded-xl text-sm" />
+                <input name="actualEnd" type="date" defaultValue={toDateInputStr(editingProgram?.actualEnd)} className="w-full p-2 border rounded-xl text-sm bg-white" />
               </div>
             </div>
           </div>
 
           <div className="flex justify-end gap-2 mt-8">
             <Button type="button" variant="outline" onClick={() => setIsDrawerOpen(false)}>취소</Button>
-            <Button type="submit" disabled={updateProgram.isPending}>
-              {updateProgram.isPending ? '처리 중...' : editingProgram ? '수정 완료' : '등록하기'}
+            <Button type="submit" disabled={updateProgram.isPending || createTask.isPending}>
+              {updateProgram.isPending || createTask.isPending ? '처리 중...' : editingProgram ? '수정 완료' : '등록하기'}
             </Button>
           </div>
         </form>

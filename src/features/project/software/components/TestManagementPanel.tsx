@@ -1,9 +1,7 @@
-import type { ChangeEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { useI18n } from '@/shared/i18n/I18nProvider'
 import { formatIsoDate } from '@/shared/lib/format'
-import { readJson, writeJson } from '@/shared/lib/storage'
 import type {
   IntakeStatus,
   ProgramItem,
@@ -17,14 +15,7 @@ import { Button } from '@/shared/ui/Button'
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Table, type Column } from '@/shared/ui/Table'
-
-type ScenarioOverride = Partial<Pick<TestScenario, 'status' | 'result' | 'intakeStatus' | 'evidenceNote' | 'executedDate'>>
-
-type Overrides = Record<string, ScenarioOverride>
-
-function key(projectId: string) {
-  return `pms-demo-test-scenario-override:${projectId}`
-}
+import { useUpdateProgramMutation, useCreateTaskMutation } from '../hooks'
 
 function resultTone(r: TestResult) {
   if (r === 'PASS') return 'green'
@@ -37,6 +28,28 @@ function intakeTone(s: IntakeStatus) {
   return s === 'RECEIVED' ? 'green' : 'zinc'
 }
 
+function Tab({ 
+  type, 
+  activeType, 
+  onClick, 
+  label 
+}: { 
+  type: TestType; 
+  activeType: TestType; 
+  onClick: (type: TestType) => void;
+  label: string;
+}) {
+  return (
+    <Button
+      variant={activeType === type ? 'primary' : 'secondary'}
+      className="h-9"
+      onClick={() => onClick(type)}
+    >
+      {label}
+    </Button>
+  )
+}
+
 export function TestManagementPanel({
   projectId,
   programs,
@@ -47,40 +60,27 @@ export function TestManagementPanel({
   scenarios: TestScenario[]
 }) {
   const { t } = useI18n()
+  
+  const updateProgram = useUpdateProgramMutation()
+  const createTask = useCreateTaskMutation()
 
   const [activeType, setActiveType] = useState<TestType>('UNIT')
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
   const [isAddMode, setIsAddMode] = useState(false)
-  const [overrides, setOverrides] = useState<Overrides>({})
-
-  useEffect(() => {
-    const initial = readJson<Overrides>(key(projectId))
-    if (initial) setOverrides(initial)
-  }, [projectId])
-
-  useEffect(() => {
-    writeJson(key(projectId), overrides)
-  }, [overrides, projectId])
 
   const programById = useMemo(() => new Map(programs.map((p) => [p.id, p] as const)), [programs])
 
-  const merged = useMemo(() => {
-    return scenarios.map((s) => {
-      const o = overrides[s.id]
-      return o ? { ...s, ...o } : s
-    })
-  }, [overrides, scenarios])
+  const list = useMemo(() => scenarios.filter((s) => s.type === activeType), [activeType, scenarios])
 
-  const list = useMemo(() => merged.filter((s) => s.type === activeType), [activeType, merged])
+  const selected = useMemo(() => (selectedId ? scenarios.find((s) => s.id === selectedId) : undefined), [scenarios, selectedId])
 
-  const selected = useMemo(() => (selectedId ? merged.find((s) => s.id === selectedId) : undefined), [merged, selectedId])
-
-  const updateSelected = (patch: ScenarioOverride) => {
+  const handleUpdate = (patch: Partial<TestScenario>) => {
     if (!selected) return
-    setOverrides((prev) => ({
-      ...prev,
-      [selected.id]: { ...prev[selected.id], ...patch },
-    }))
+    updateProgram.mutate({
+      projectId,
+      programId: selected.id,
+      updates: patch as any
+    })
   }
 
   const columns: Column<TestScenario>[] = [
@@ -103,7 +103,6 @@ export function TestManagementPanel({
       cell: (s) => (
         <div className="leading-tight">
           <div className="font-semibold text-zinc-900">{s.title}</div>
-          <div className="mt-0.5 text-xs text-zinc-600">{s.id}</div>
         </div>
       ),
     },
@@ -146,24 +145,24 @@ export function TestManagementPanel({
     },
   ]
 
-  const Tab = ({ type }: { type: TestType }) => (
-    <Button
-      variant={activeType === type ? 'primary' : 'secondary'}
-      className="h-9"
-      onClick={() => setActiveType(type)}
-    >
-      {type === 'UNIT' ? t('software.tests.tab.unit') : t('software.tests.tab.integration')}
-    </Button>
-  )
-
   return (
     <>
       <Card>
         <CardHeader className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>{t('software.tests.title')}</CardTitle>
           <div className="flex items-center gap-2">
-            <Tab type="UNIT" />
-            <Tab type="INTEGRATION" />
+            <Tab 
+              type="UNIT" 
+              activeType={activeType} 
+              onClick={setActiveType} 
+              label={t('software.tests.tab.unit')} 
+            />
+            <Tab 
+              type="INTEGRATION" 
+              activeType={activeType} 
+              onClick={setActiveType} 
+              label={t('software.tests.tab.integration')} 
+            />
             <div className="ml-1 text-xs text-zinc-600">{list.length}</div>
             <Button size="sm" onClick={() => setIsAddMode(true)}>+ 시나리오 추가</Button>
           </div>
@@ -185,7 +184,7 @@ export function TestManagementPanel({
         <Drawer
           open={Boolean(selected)}
           title={t('software.tests.drawer.title')}
-          subtitle={selected ? `${selected.id} | ${selected.type}` : undefined}
+          subtitle={selected ? selected.type : undefined}
           onClose={() => setSelectedId(undefined)}
         >
           {selected ? (
@@ -208,10 +207,9 @@ export function TestManagementPanel({
                   <select
                     className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm"
                     value={selected.status}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                    onChange={(e) => {
                       const next = e.target.value as TestScenarioStatus
-                      const executedDate = next === 'EXECUTED' && !selected.executedDate ? new Date().toISOString().slice(0, 10) : selected.executedDate
-                      updateSelected({ status: next, executedDate })
+                      handleUpdate({ status: next })
                     }}
                   >
                     <option value="DRAFT">DRAFT</option>
@@ -225,9 +223,9 @@ export function TestManagementPanel({
                   <select
                     className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm"
                     value={selected.result}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                    onChange={(e) => {
                       const next = e.target.value as TestResult
-                      updateSelected({ result: next })
+                      handleUpdate({ result: next })
                     }}
                   >
                     <option value="NA">NA</option>
@@ -242,9 +240,9 @@ export function TestManagementPanel({
                   <select
                     className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 shadow-sm"
                     value={selected.intakeStatus}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                    onChange={(e) => {
                       const next = e.target.value as IntakeStatus
-                      updateSelected({ intakeStatus: next })
+                      handleUpdate({ intakeStatus: next })
                     }}
                   >
                     <option value="PENDING">PENDING</option>
@@ -257,8 +255,8 @@ export function TestManagementPanel({
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('software.tests.drawer.evidence')}</div>
                 <textarea
                   className="mt-2 min-h-[96px] w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
-                  value={selected.evidenceNote}
-                  onChange={(e) => updateSelected({ evidenceNote: e.target.value })}
+                  defaultValue={selected.evidenceNote}
+                  onBlur={(e) => handleUpdate({ evidenceNote: e.target.value })}
                 />
                 <div className="mt-2 text-xs text-zinc-600">
                   {t('software.tests.drawer.evidenceHint')}
@@ -270,29 +268,55 @@ export function TestManagementPanel({
       </Card>
 
       <Drawer open={isAddMode} onClose={() => setIsAddMode(false)} title="신규 테스트 시나리오 등록">
-        <div className="p-6 space-y-4">
+        <form className="p-6 space-y-4" onSubmit={(e) => {
+          e.preventDefault()
+          const formData = new FormData(e.currentTarget)
+          const data = Object.fromEntries(formData.entries())
+          
+          createTask.mutate({
+            projectId,
+            task: {
+              ...data,
+              category: 'SCENARIO',
+              result: 'NA',
+              intakeStatus: 'PENDING'
+            } as any
+          }, {
+            onSuccess: () => {
+              alert('시나리오가 등록되었습니다')
+              setIsAddMode(false)
+            }
+          })
+        }}>
           <div>
             <label className="block text-sm font-medium mb-1">대상 프로그램</label>
-            <select className="w-full p-2 border rounded-md dark:bg-slate-800">
+            <select name="programId" className="w-full p-2 border rounded-md bg-white" required>
+              <option value="">프로그램 선택</option>
               {programs.map(p => <option key={p.id} value={p.id}>{p.code} | {p.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">시나리오 제목</label>
-            <input className="w-full p-2 border rounded-md dark:bg-slate-800" placeholder="e.g. 정상 로그인 테스트" />
+            <input name="title" className="w-full p-2 border rounded-md bg-white" placeholder="e.g. 정상 로그인 테스트" required />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">테스트 구분</label>
             <div className="flex gap-4">
-              <label className="flex items-center gap-2"><input type="radio" name="testType" defaultChecked /> 단위(UNIT)</label>
-              <label className="flex items-center gap-2"><input type="radio" name="testType" /> 통합(INT)</label>
+              <label className="flex items-center gap-2"><input type="radio" name="type" value="UNIT" defaultChecked /> 단위(UNIT)</label>
+              <label className="flex items-center gap-2"><input type="radio" name="type" value="INTEGRATION" /> 통합(INT)</label>
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-6">
-            <Button variant="outline" onClick={() => setIsAddMode(false)}>취소</Button>
-            <Button onClick={() => { alert('시나리오가 등록되었습니다'); setIsAddMode(false); }}>등록하기</Button>
+          <div>
+            <label className="block text-sm font-medium mb-1">담당자</label>
+            <input name="owner" className="w-full p-2 border rounded-md bg-white" placeholder="홍길동" required />
           </div>
-        </div>
+          <div className="flex justify-end gap-2 mt-6">
+            <Button type="button" variant="outline" onClick={() => setIsAddMode(false)}>취소</Button>
+            <Button type="submit" disabled={createTask.isPending}>
+              {createTask.isPending ? '등록 중...' : '등록하기'}
+            </Button>
+          </div>
+        </form>
       </Drawer>
     </>
   )

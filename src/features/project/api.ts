@@ -1,6 +1,6 @@
 import { apiClient, isMockMode } from '@/shared/api/client'
 import { db } from '@/mocks/db'
-import type { LocalizedDeliverable, LocalizedTask, LocalizedText } from '@/mocks/db/seed/types'
+import type { LocalizedDeliverable, LocalizedText } from '@/mocks/db/seed/types'
 import type { Lang } from '@/shared/i18n/dict'
 import { sleep } from '@/shared/lib/sleep'
 import type { DeliverableItem, ProgressPoint, ProjectDetail, ProjectTask } from '@/shared/types/pms'
@@ -91,7 +91,7 @@ export async function fetchProjectTasks(projectId: string, lang: Lang): Promise<
 
   // 개발 단계(Phase 3)의 경우 프로그램 시드 데이터를 합쳐서 반환
   const programs = db.programsByProjectId[projectId] || []
-  const allTasks = [...(items as LocalizedTask[]), ...programs]
+  const allTasks = [...(items as any[]), ...programs]
 
   return allTasks
     .filter((t) => {
@@ -118,4 +118,14 @@ export async function fetchProjectDeliverables(projectId: string, lang: Lang): P
     ...d,
     title: pickText(d.title, lang),
   }))
+}
+
+export async function fetchProjectDefects(projectId: string): Promise<any[]> {
+  if (!isMockMode()) {
+    const { data } = await apiClient.get<any[]>(`/projects/${projectId}/defects`)
+    return data
+  }
+
+  await sleep(150)
+  return [] // Mock implementation returns empty for now
 }

@@ -5,6 +5,7 @@ import {
   fetchProjectDetail,
   fetchProjectProgress,
   fetchProjectTasks,
+  fetchProjectDefects,
 } from '@/features/project/api'
 import type { Lang } from '@/shared/i18n/dict'
 
@@ -36,6 +37,14 @@ export function useProjectDeliverablesQuery(projectId: string, lang: Lang) {
   return useQuery({
     queryKey: ['project-deliverables', projectId, lang],
     queryFn: () => fetchProjectDeliverables(projectId, lang),
+    enabled: projectId.length > 0,
+  })
+}
+
+export function useProjectDefectsQuery(projectId: string) {
+  return useQuery({
+    queryKey: ['project-defects', projectId],
+    queryFn: () => fetchProjectDefects(projectId),
     enabled: projectId.length > 0,
   })
 }

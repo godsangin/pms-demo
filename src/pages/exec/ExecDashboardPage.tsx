@@ -55,7 +55,7 @@ export function ExecDashboardPage() {
               <CardHeader className="flex items-center justify-between">
               <CardTitle>{t('dashboard.heatmap.title')}</CardTitle>
               <div className="flex items-center gap-4">
-                {data ? (
+                {data?.projects ? (
                   <div className="text-xs text-zinc-600">
                     {t('dashboard.heatmap.projectsCount', { count: data.projects.length })}
                   </div>

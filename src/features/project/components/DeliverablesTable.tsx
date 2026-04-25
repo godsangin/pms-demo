@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 import { formatIsoDate } from '@/shared/lib/format'
 import { useI18n } from '@/shared/i18n/I18nProvider'
-import type { DeliverableItem, DeliverableStatus } from '@/shared/types/pms'
+import type { DeliverableItem, DeliverableStatus, DeliveryStage } from '@/shared/types/pms'
 import { Badge } from '@/shared/ui/Badge'
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Table, type Column } from '@/shared/ui/Table'
 import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
 import { DeliverableUpload } from './DeliverableUpload'
+import { useCreateDeliverableMutation, useRegisterDeliverablesBulkMutation } from '@/features/project/software/hooks'
 
 function statusTone(status: DeliverableStatus) {
   if (status === 'ACCEPTED') return 'green'
@@ -17,13 +19,79 @@ function statusTone(status: DeliverableStatus) {
 }
 
 export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
+  const { projectId } = useParams()
   const { t } = useI18n()
   const [isUploadOpen, setIsUploadOpen] = useState(false)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const createMutation = useCreateDeliverableMutation()
+  const bulkRegister = useRegisterDeliverablesBulkMutation()
 
   const handleUpload = (id: string) => {
     setSelectedId(id)
     setIsUploadOpen(true)
+  }
+
+  const handleDownloadTemplate = () => {
+    const headers = ['title', 'stage', 'dueDate', 'status']
+    const sampleData = [
+      '시스템 아키텍처 설계서,ANALYSIS_DESIGN,2024-05-15,PLANNED',
+      '단위테스트 결과보고서,TEST,2024-06-10,PLANNED'
+    ]
+    const csvContent = [headers.join(','), ...sampleData].join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'deliverable_template.csv')
+    link.click()
+  }
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const text = event.target?.result as string
+      if (!text) return
+
+      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '')
+      if (lines.length < 2) {
+        alert('CSV 파일에 데이터가 없습니다.')
+        return
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim())
+      const data = lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim())
+        const obj: any = {}
+        headers.forEach((h, i) => {
+          obj[h] = values[i]
+        })
+        return {
+          title: obj.title,
+          stage: (obj.stage || 'DEVELOPMENT') as DeliveryStage,
+          dueDate: obj.dueDate,
+          status: (obj.status || 'PLANNED') as DeliverableStatus,
+        }
+      })
+
+      if (window.confirm(`${data.length}개의 산출물을 등록하시겠습니까?`)) {
+        bulkRegister.mutate({ projectId: projectId!, deliverables: data }, {
+          onSuccess: () => {
+            alert('성공적으로 산출물이 등록되었습니다.')
+            if (fileInputRef.current) fileInputRef.current.value = ''
+          },
+          onError: (err) => {
+            alert(`등록 중 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+          }
+        })
+      }
+    }
+    reader.readAsText(file)
   }
 
   const columns: Column<DeliverableItem>[] = [
@@ -33,7 +101,6 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
       cell: (d) => (
         <div className="leading-tight">
           <div className="font-semibold text-zinc-900">{d.title}</div>
-          <div className="mt-0.5 text-xs text-zinc-600">{d.id}</div>
         </div>
       ),
     },
@@ -43,9 +110,9 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
       cell: (d) => (
         <div className="flex flex-col items-center gap-1">
           <Badge tone={statusTone(d.status)}>{d.status}</Badge>
-          {(d.status as string) === 'NOT_SUBMITTED' && (
+          {(d.status as string) === 'NOT_SUBMITTED' || (d.status as string) === 'PLANNED' ? (
             <Button size="xs" variant="outline" onClick={() => handleUpload(d.id)}>업로드</Button>
-          )}
+          ) : null}
         </div>
       ),
     },
@@ -75,7 +142,27 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
       <Card>
         <CardHeader className="flex items-center justify-between">
           <CardTitle>{t('deliverables.title')}</CardTitle>
-          <Button size="sm">+ 새 산출물 등록</Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={handleDownloadTemplate}>
+              서식 다운로드
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={bulkRegister.isPending}>
+              CSV 일괄 등록
+            </Button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept=".csv" 
+              onChange={handleCsvUpload} 
+            />
+            <Button 
+              size="sm" 
+              onClick={() => setIsCreateOpen(true)}
+            >
+              + 새 산출물 등록
+            </Button>
+          </div>
         </CardHeader>
         <CardBody className="p-0">
           {items.length > 0 ? (
@@ -87,12 +174,62 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
       </Card>
 
       <Drawer 
+        open={isCreateOpen} 
+        onClose={() => setIsCreateOpen(false)}
+        title="신규 산출물 등록"
+      >
+        <form className="p-6 space-y-5" onSubmit={(e) => {
+          e.preventDefault();
+          const formData = new FormData(e.currentTarget);
+          const data = Object.fromEntries(formData.entries());
+          
+          createMutation.mutate({
+            projectId: projectId!,
+            deliverable: data as any
+          }, {
+            onSuccess: () => {
+              alert('산출물이 등록되었습니다');
+              setIsCreateOpen(false);
+            }
+          });
+        }}>
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">산출물 명칭</label>
+            <input name="title" required className="w-full p-2 border rounded-xl text-sm" placeholder="e.g. 시스템 아키텍처 설계서" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">제출 예정일</label>
+            <input name="dueDate" type="date" required className="w-full p-2 border rounded-xl text-sm" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">단계(Stage)</label>
+            <select name="stage" className="w-full p-2 border rounded-xl text-sm bg-white" defaultValue="DEVELOPMENT">
+              <option value="ANALYSIS_DESIGN">분석/설계</option>
+              <option value="DEVELOPMENT">개발</option>
+              <option value="TEST">테스트</option>
+              <option value="DEPLOYMENT">배포/운영</option>
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-8">
+            <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>취소</Button>
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending ? '등록 중...' : '등록하기'}
+            </Button>
+          </div>
+        </form>
+      </Drawer>
+
+      <Drawer 
         open={isUploadOpen} 
         onClose={() => setIsUploadOpen(false)}
         title="산출물 파일 업로드"
       >
         <div className="p-4">
           <DeliverableUpload 
+            projectId={projectId!}
             deliverableId={selectedId || ''} 
             onUploadSuccess={() => setIsUploadOpen(false)}
           />

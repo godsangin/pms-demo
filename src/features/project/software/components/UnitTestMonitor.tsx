@@ -1,6 +1,6 @@
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Badge } from '@/shared/ui/Badge'
-import { Table } from '@/shared/ui/Table'
+import { Table, type Column } from '@/shared/ui/Table'
 import type { ProjectTask, DefectItem } from '@/shared/types/pms'
 
 interface UnitTestMonitorProps {
@@ -16,6 +16,54 @@ export function UnitTestMonitor({ programs, defects }: UnitTestMonitorProps) {
     acc[p.orgName].progressSum += p.progressPct
     return acc
   }, {} as Record<string, { total: number, progressSum: number }>)
+
+  const columns: Column<ProjectTask>[] = [
+    {
+      header: '프로그램명',
+      className: 'font-medium',
+      cell: (p) => p.name
+    },
+    {
+      header: '수행기관',
+      className: 'text-zinc-600',
+      cell: (p) => p.orgName
+    },
+    {
+      header: '진척률',
+      cell: (p) => (
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-100">
+            <div 
+              className="h-full bg-blue-500" 
+              style={{ width: `${p.progressPct}%` }}
+            />
+          </div>
+          <span className="text-xs tabular-nums">{p.progressPct}%</span>
+        </div>
+      )
+    },
+    {
+      header: '연관 결함',
+      cell: (p) => {
+        const programDefects = defects.filter(d => d.taskId === p.id)
+        return programDefects.length > 0 ? (
+          <Badge tone="red">
+            결함 {programDefects.length}건
+          </Badge>
+        ) : (
+          <span className="text-zinc-400">-</span>
+        )
+      }
+    },
+    {
+      header: '상태',
+      cell: (p) => (
+        <Badge tone={p.progressPct === 100 ? 'green' : 'zinc'}>
+          {p.progressPct === 100 ? '완료' : '진행중'}
+        </Badge>
+      )
+    }
+  ]
 
   return (
     <div className="space-y-6">
@@ -38,53 +86,12 @@ export function UnitTestMonitor({ programs, defects }: UnitTestMonitorProps) {
           <CardTitle>단위테스트 수행 현황</CardTitle>
         </CardHeader>
         <CardBody className="p-0">
-          <Table>
-            <thead>
-              <tr className="border-b border-zinc-100 bg-zinc-50/50 text-left text-xs font-medium text-zinc-500">
-                <th className="px-4 py-3">프로그램명</th>
-                <th className="px-4 py-3">수행기관</th>
-                <th className="px-4 py-3">진척률</th>
-                <th className="px-4 py-3">연관 결함</th>
-                <th className="px-4 py-3">상태</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {programs.map((p) => {
-                const programDefects = defects.filter(d => d.taskId === p.id)
-                return (
-                  <tr key={p.id} className="text-sm hover:bg-zinc-50/50">
-                    <td className="px-4 py-3 font-medium">{p.name}</td>
-                    <td className="px-4 py-3 text-zinc-600">{p.orgName}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-100">
-                          <div 
-                            className="h-full bg-blue-500" 
-                            style={{ width: `${p.progressPct}%` }}
-                          />
-                        </div>
-                        <span className="text-xs tabular-nums">{p.progressPct}%</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {programDefects.length > 0 ? (
-                        <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
-                          결함 {programDefects.length}건
-                        </Badge>
-                      ) : (
-                        <span className="text-zinc-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={p.progressPct === 100 ? 'success' : 'secondary'}>
-                        {p.progressPct === 100 ? '완료' : '진행중'}
-                      </Badge>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </Table>
+          <Table 
+            columns={columns} 
+            rows={programs} 
+            rowKey={(p) => p.id} 
+            className="border-0 rounded-none"
+          />
         </CardBody>
       </Card>
     </div>

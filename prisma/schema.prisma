@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  EXEC
+}
+
+enum TaskCategory {
+  MILESTONE
+  PERIODIC
+  DELIVERABLE
+  PROGRAM
+  SCENARIO
+  COMMON
+}
+
+enum DeliverableStatus {
+  PLANNED
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  NOT_SUBMITTED
+}
+
+enum DeliveryStage {
+  ANALYSIS_DESIGN
+  DEVELOPMENT
+  TEST
+  DEPLOYMENT
+}
+
+enum DefectStatus {
+  조치예정
+  조치_중 @map("조치 중")
+  조치완료
+}
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username      String    @unique @db.VarChar(50)
+  password_hash String
+  full_name     String    @db.VarChar(100)
+  org_name      String?   @db.VarChar(100)
+  role          UserRole  @default(USER)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  projects      Project[] @relation("PMProjects")
+  managedTasks  Task[]    @relation("TaskManager")
+  reportedDefects Defect[]  @relation("Reporter")
+  assignedDefects Defect[]  @relation("Assignee")
+
+  @@map("users")
+}
+
+model Project {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String    @db.VarChar(255)
+  description               String?
+  pm_id                     String?   @db.Uuid
+  start_date                DateTime  @db.Date
+  end_date                  DateTime  @db.Date
+  status                    String?   @default("GREEN") @db.VarChar(20)
+  total_progress            Decimal?  @default(0.00) @db.Decimal(5, 2)
+  sv_this_week              Decimal?  @default(0.00) @db.Decimal(5, 2)
+  high_risk_count           Int?      @default(0)
+  deliverable_approval_rate Decimal?  @default(0.00) @db.Decimal(5, 2)
+  critical_task_count       Int?      @default(0)
+  created_at                DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime? @default(now()) @db.Timestamptz(6)
+
+  pm           User?         @relation("PMProjects", fields: [pm_id], references: [id])
+  phases       Phase[]
+  deliverables Deliverable[]
+
+  @@map("projects")
+}
+
+model Phase {
+  id            Int      @id @default(autoincrement())
+  project_id    String   @db.Uuid
+  phase_type    String   @db.VarChar(50)
+  name          String   @db.VarChar(100)
+  weight        Decimal  @db.Decimal(5, 2)
+  progress_rate Decimal? @default(0.00) @db.Decimal(5, 2)
+  sort_order    Int
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@unique([project_id, phase_type])
+  @@map("phases")
+}
+
+model Task {
+  id                       String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phase_id                 Int
+  category                 TaskCategory @default(COMMON)
+  name                     String       @db.VarChar(255)
+  org_name                 String?      @db.VarChar(100)
+  manager_id               String?      @db.Uuid
+  progress_rate            Decimal?     @default(0.00) @db.Decimal(5, 2)
+  is_required_deliverable  Boolean?     @default(false)
+  
+  wbs_code                 String?      @db.VarChar(50)
+  depth                    Int?         @default(0)
+  weight                   Decimal?     @default(0.0000) @db.Decimal(5, 4)
+  baseline_start           DateTime?    @db.Date
+  baseline_end             DateTime?    @db.Date
+  actual_start             DateTime?    @db.Date
+  actual_end               DateTime?    @db.Date
+  
+  start_date               DateTime?    @db.Date
+  end_date                 DateTime?    @db.Date
+  status                   String?      @default("READY") @db.VarChar(20)
+
+  // 테스트 시나리오 특화 필드
+  test_type                String?      @db.VarChar(20) // UNIT, INTEGRATION
+  test_result              String?      @db.VarChar(20) // PASS, FAIL, NA, BLOCKED
+  evidence_note            String?      @db.Text
+  intake_status            String?      @default("PENDING") @db.VarChar(20)
+  program_id               String?      @db.Uuid // 연관 프로그램 (Task.id)
+  
+  created_at               DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?    @default(now()) @db.Timestamptz(6)
+
+  phase        Phase         @relation(fields: [phase_id], references: [id], onDelete: Cascade)
+  manager      User?         @relation("TaskManager", fields: [manager_id], references: [id])
+  deliverables Deliverable []
+  defects      Defect[]
+  
+  // 자기 참조 또는 타 테스크와의 연관 (시나리오 -> 프로그램)
+  program      Task?         @relation("ProgramScenarios", fields: [program_id], references: [id])
+  scenarios    Task[]        @relation("ProgramScenarios")
+
+  @@map("tasks")
+}
+
+model Deliverable {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id     String             @db.Uuid
+  task_id        String?            @db.Uuid
+  title          String             @db.VarChar(255)
+  status         DeliverableStatus? @default(PLANNED)
+  due_date       DateTime?          @db.Date
+  submitted_date DateTime?          @db.Date
+  decided_date   DateTime?          @db.Date
+  stage          DeliveryStage?
+  file_path      String?
+  link_url       String?
+  uploaded_at    DateTime?          @default(now()) @db.Timestamptz(6)
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [task_id], references: [id], onDelete: SetNull)
+
+  @@map("deliverables")
+}
+
+model Defect {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id     String        @db.Uuid
+  title       String        @db.VarChar(255)
+  description String?
+  status      DefectStatus? @default(조치예정)
+  severity    String?       @db.VarChar(20)
+  reporter_id String?       @db.Uuid
+  assignee_id String?       @db.Uuid
+  created_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime?     @default(now()) @db.Timestamptz(6)
+
+  task     Task  @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  reporter User? @relation("Reporter", fields: [reporter_id], references: [id])
+  assignee User? @relation("Assignee", fields: [assignee_id], references: [id])
+
+  @@map("defects")
+}
