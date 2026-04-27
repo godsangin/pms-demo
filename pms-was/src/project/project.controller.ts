@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Patch, Param, Body, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseInterceptors, UploadedFile, UseGuards, Res, NotFoundException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ProjectService } from './project.service';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('projects')
+@UseGuards(JwtAuthGuard)
 export class ProjectController {
   constructor(private projectService: ProjectService) {}
 
@@ -46,7 +48,7 @@ export class ProjectController {
       destination: './uploads/deliverables',
       filename: (_req, file, cb) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        return cb(null, `\${randomName}\${extname(file.originalname)}`);
+        return cb(null, `${randomName}${extname(file.originalname)}`);
       }
     })
   }))
@@ -59,6 +61,20 @@ export class ProjectController {
       file_path: file.path,
       original_name: file.originalname
     });
+  }
+
+  @Get(':id/deliverables/:deliverableId/download')
+  async downloadDeliverableFile(
+    @Param('id') _projectId: string,
+    @Param('deliverableId') deliverableId: string,
+    @Res() res: any,
+  ) {
+    const deliverable = await this.projectService.getDeliverableById(deliverableId);
+    if (!deliverable || !deliverable.file_path) {
+      throw new NotFoundException('파일이 존재하지 않습니다.');
+    }
+    
+    return res.download(deliverable.file_path);
   }
 
   // 테스크(프로그램/시나리오) 상태 및 진척률 업데이트
@@ -97,5 +113,16 @@ export class ProjectController {
     @Body() data: { deliverables: any[] },
   ) {
     return this.projectService.registerDeliverablesBulk(projectId, data.deliverables);
+  }
+
+  // WBS CSV 임포트 (Baseline/Actual 업데이트)
+  @Post(':id/wbs/import')
+  @UseInterceptors(FileInterceptor('file'))
+  async importWbs(
+    @Param('id') projectId: string,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    const csvContent = file.buffer.toString('utf8');
+    return this.projectService.importWbsFromCsv(projectId, csvContent);
   }
 }

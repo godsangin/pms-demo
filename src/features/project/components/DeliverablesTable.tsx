@@ -10,6 +10,8 @@ import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
 import { DeliverableUpload } from './DeliverableUpload'
 import { useCreateDeliverableMutation, useRegisterDeliverablesBulkMutation } from '@/features/project/software/hooks'
+import { getActiveRole } from '@/shared/lib/role'
+import { getStoredToken } from '@/shared/lib/storage'
 
 function statusTone(status: DeliverableStatus) {
   if (status === 'ACCEPTED') return 'green'
@@ -25,6 +27,9 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const role = getActiveRole()
+  const isAdmin = role === 'ADMIN'
 
   const createMutation = useCreateDeliverableMutation()
   const bulkRegister = useRegisterDeliverablesBulkMutation()
@@ -32,6 +37,31 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
   const handleUpload = (id: string) => {
     setSelectedId(id)
     setIsUploadOpen(true)
+  }
+
+  const handleDownload = async (deliverableId: string, fileName: string) => {
+    const token = getStoredToken()
+    const url = `http://localhost:3000/api/projects/${projectId}/deliverables/${deliverableId}/download`
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (!response.ok) throw new Error('Download failed')
+      
+      const blob = await response.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.setAttribute('download', fileName || 'deliverable_file')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (err) {
+      alert('파일 다운로드 중 오류가 발생했습니다.')
+    }
   }
 
   const handleDownloadTemplate = () => {
@@ -101,6 +131,14 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
       cell: (d) => (
         <div className="leading-tight">
           <div className="font-semibold text-zinc-900">{d.title}</div>
+          {d.filePath && (
+            <button 
+              onClick={() => handleDownload(d.id, d.title)}
+              className="mt-1 text-xs text-blue-600 hover:underline flex items-center gap-1"
+            >
+              📎 첨부파일 다운로드
+            </button>
+          )}
         </div>
       ),
     },
@@ -110,8 +148,10 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
       cell: (d) => (
         <div className="flex flex-col items-center gap-1">
           <Badge tone={statusTone(d.status)}>{d.status}</Badge>
-          {(d.status as string) === 'NOT_SUBMITTED' || (d.status as string) === 'PLANNED' ? (
+          {((d.status as string) === 'NOT_SUBMITTED' || (d.status as string) === 'PLANNED') ? (
             <Button size="xs" variant="outline" onClick={() => handleUpload(d.id)}>업로드</Button>
+          ) : d.filePath ? (
+            <Button size="xs" variant="ghost" onClick={() => handleUpload(d.id)}>재업로드</Button>
           ) : null}
         </div>
       ),
@@ -146,22 +186,26 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
             <Button size="sm" variant="outline" onClick={handleDownloadTemplate}>
               서식 다운로드
             </Button>
-            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={bulkRegister.isPending}>
-              CSV 일괄 등록
-            </Button>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept=".csv" 
-              onChange={handleCsvUpload} 
-            />
-            <Button 
-              size="sm" 
-              onClick={() => setIsCreateOpen(true)}
-            >
-              + 새 산출물 등록
-            </Button>
+            {isAdmin && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={bulkRegister.isPending}>
+                  CSV 일괄 등록
+                </Button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept=".csv" 
+                  onChange={handleCsvUpload} 
+                />
+                <Button 
+                  size="sm" 
+                  onClick={() => setIsCreateOpen(true)}
+                >
+                  + 새 산출물 등록
+                </Button>
+              </>
+            )}
           </div>
         </CardHeader>
         <CardBody className="p-0">

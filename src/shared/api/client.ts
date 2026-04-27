@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getStoredToken } from '@/shared/lib/storage'
 
 // 통합 서버 환경(3000번 포트)에서는 상대 경로를 사용하고, 
 // Vite 개발 서버 환경(5173번 포트)에서는 백엔드 주소를 명시합니다.
@@ -13,6 +14,15 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+})
+
+// Request Interceptor: Add Token
+apiClient.interceptors.request.use((config) => {
+  const token = getStoredToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
 })
 
 // Mock 모드인지 실제 WAS 모드인지 판별하는 유틸리티

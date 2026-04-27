@@ -1,10 +1,12 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { BaselineActualTimeline } from '@/features/project/components/BaselineActualTimeline'
 import { DeliverablesTable } from '@/features/project/components/DeliverablesTable'
 import { ProgressTrendChart } from '@/features/project/components/ProgressTrendChart'
 import { TopRisksBlock } from '@/features/project/components/TopRisksBlock'
+import { WbsImportButton } from '@/features/project/components/WbsImportButton'
 import { DeliverablesIntakePanel } from '@/features/project/software/components/DeliverablesIntakePanel'
 import { ProgramListPanel } from '@/features/project/software/components/ProgramListPanel'
 import { StageProgressPanel } from '@/features/project/software/components/StageProgressPanel'
@@ -27,10 +29,14 @@ import { formatDday, formatIsoDate, formatPercent, formatSignedPercent } from '@
 import { useI18n } from '@/shared/i18n/I18nProvider'
 import { StatusBadge } from '@/shared/ui/Badge'
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card'
+import { getActiveRole } from '@/shared/lib/role'
 
 export function ExecProjectDetailPage() {
   const params = useParams()
   const projectId = params.projectId ?? ''
+  const queryClient = useQueryClient()
+  const role = getActiveRole()
+  const isAdmin = role === 'ADMIN'
 
   const { t, lang } = useI18n()
 
@@ -49,6 +55,14 @@ export function ExecProjectDetailPage() {
     const subtitle = data ? data.project.description : ''
     setTopBar({ title, subtitle })
   }, [data, projectId, setTopBar])
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
+    queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+    queryClient.invalidateQueries({ queryKey: ['project-progress', projectId] })
+    queryClient.invalidateQueries({ queryKey: ['programs', projectId] })
+    queryClient.invalidateQueries({ queryKey: ['stage-progress', projectId] })
+  }
 
   const svTrend = useMemo(() => {
     const points = progressQuery.data
@@ -104,6 +118,11 @@ export function ExecProjectDetailPage() {
           <div className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900">{p.name}</div>
           <div className="mt-1 text-sm text-zinc-600">{p.description}</div>
         </div>
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <WbsImportButton projectId={projectId} onSuccess={handleRefresh} />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">

@@ -10,6 +10,8 @@ import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
 import { DeliverableUpload } from '../../components/DeliverableUpload'
 import { useCreateDeliverableMutation } from '../hooks'
+import { getActiveRole } from '@/shared/lib/role'
+import { getStoredToken } from '@/shared/lib/storage'
 
 function orderedStages(): DeliveryStage[] {
   return ['ANALYSIS_DESIGN', 'DEVELOPMENT', 'TEST', 'DEPLOYMENT']
@@ -34,6 +36,9 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
   const params = useParams()
   const projectId = params.projectId ?? ''
   
+  const role = getActiveRole()
+  const isAdmin = role === 'ADMIN'
+
   const [selectedId, setSelectedId] = useState<string | undefined>()
   const [isDefineOpen, setIsDefineOpen] = useState(false)
   
@@ -51,6 +56,31 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
     const submitted = list.filter((d) => d.status === 'SUBMITTED').length
     return { stage, total, received, accepted, rejected, submitted }
   })
+
+  const handleDownload = async (deliverableId: string, fileName: string) => {
+    const token = getStoredToken()
+    const url = `http://localhost:3000/api/projects/${projectId}/deliverables/${deliverableId}/download`
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (!response.ok) throw new Error('Download failed')
+      
+      const blob = await response.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.setAttribute('download', fileName || 'deliverable_file')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (err) {
+      alert('파일 다운로드 중 오류가 발생했습니다.')
+    }
+  }
 
   const columns: Column<DeliverableItem>[] = [
     {
@@ -94,10 +124,14 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
       className: 'w-[150px]',
       cell: (d) => (
         <div className="text-xs">
-          {d.attachment ? (
-            <a href={d.attachment.url} className="text-blue-600 hover:underline truncate block max-w-[140px]" title={d.attachment.name}>
-              📎 {d.attachment.name}
-            </a>
+          {d.filePath ? (
+            <button 
+              onClick={() => handleDownload(d.id, d.title)}
+              className="text-blue-600 hover:underline truncate block max-w-[140px]" 
+              title={d.title}
+            >
+              📎 첨부파일 다운로드
+            </button>
           ) : (
             <span className="text-zinc-400">없음</span>
           )}
@@ -120,7 +154,9 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
       <Card>
         <CardHeader className="flex items-center justify-between">
           <CardTitle>{t('software.deliverables.title')}</CardTitle>
-          <Button size="sm" onClick={() => setIsDefineOpen(true)}>+ 신규 산출물 정의</Button>
+          {isAdmin && (
+            <Button size="sm" onClick={() => setIsDefineOpen(true)}>+ 신규 산출물 정의</Button>
+          )}
         </CardHeader>
         <CardBody className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -178,7 +214,9 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
                   등록된 테일러링 이력이 없습니다.
                 </div>
               )}
-              <Button size="sm" variant="outline" className="w-full mt-2">+ 이력 추가</Button>
+              {isAdmin && (
+                <Button size="sm" variant="outline" className="w-full mt-2">+ 이력 추가</Button>
+              )}
             </div>
           </section>
 
@@ -205,13 +243,24 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
               />
             )}
 
-            {selectedItem?.attachment && (
+            {selectedItem?.filePath && (
               <div className="mt-4 p-3 border rounded-xl bg-blue-50 flex items-center justify-between">
                 <div>
-                  <div className="text-xs font-semibold text-blue-900 truncate max-w-[200px]">{selectedItem.attachment.name}</div>
-                  <div className="text-[10px] text-blue-700">{selectedItem.attachment.uploadedAt}</div>
+                  <div className="text-xs font-semibold text-blue-900 truncate max-w-[200px]">{selectedItem.title}</div>
+                  <div className="text-[10px] text-blue-700">업로드 완료</div>
                 </div>
-                <Button size="xs" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">삭제</Button>
+                <div className="flex gap-2">
+                  <Button 
+                    size="xs" 
+                    variant="outline" 
+                    onClick={() => handleDownload(selectedItem.id, selectedItem.title)}
+                  >
+                    다운로드
+                  </Button>
+                  {isAdmin && (
+                    <Button size="xs" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">삭제</Button>
+                  )}
+                </div>
               </div>
             )}
           </section>

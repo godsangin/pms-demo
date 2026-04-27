@@ -16,6 +16,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Table, type Column } from '@/shared/ui/Table'
 import { useUpdateProgramMutation, useCreateTaskMutation } from '../hooks'
+import { getActiveRole } from '@/shared/lib/role'
 
 function resultTone(r: TestResult) {
   if (r === 'PASS') return 'green'
@@ -61,6 +62,9 @@ export function TestManagementPanel({
 }) {
   const { t } = useI18n()
   
+  const role = getActiveRole()
+  const isAdmin = role === 'ADMIN'
+
   const updateProgram = useUpdateProgramMutation()
   const createTask = useCreateTaskMutation()
 
@@ -164,7 +168,9 @@ export function TestManagementPanel({
               label={t('software.tests.tab.integration')} 
             />
             <div className="ml-1 text-xs text-zinc-600">{list.length}</div>
-            <Button size="sm" onClick={() => setIsAddMode(true)}>+ 시나리오 추가</Button>
+            {isAdmin && (
+              <Button size="sm" onClick={() => setIsAddMode(true)}>+ 시나리오 추가</Button>
+            )}
           </div>
         </CardHeader>
         <CardBody className="p-0">

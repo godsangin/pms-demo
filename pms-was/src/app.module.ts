@@ -6,9 +6,10 @@ import { ProgressService } from './progress/progress.service';
 import { PortfolioService } from './portfolio/portfolio.service';
 import { ProjectService } from './project/project.service';
 import { PrismaService } from './prisma/prisma.service';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [],
+  imports: [AuthModule],
   controllers: [TasksController, PortfolioController, ProjectController],
   providers: [ProgressService, PortfolioService, ProjectService, PrismaService],
 })

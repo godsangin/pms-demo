@@ -10,7 +10,7 @@ import { getActiveRole } from '@/shared/lib/role'
 
 function DefaultRedirect() {
   const role = getActiveRole()
-  return <Navigate to={role === 'EXEC' ? '/exec' : '/login'} replace />
+  return <Navigate to={(role === 'ADMIN' || role === 'USER' || role === 'EXEC') ? '/exec' : '/login'} replace />
 }
 
 export function AppRouter() {
