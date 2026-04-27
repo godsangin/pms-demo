@@ -129,3 +129,14 @@ export async function fetchProjectDefects(projectId: string): Promise<any[]> {
   await sleep(150)
   return [] // Mock implementation returns empty for now
 }
+
+export async function importWbsCsv(projectId: string, file: File): Promise<{ updatedCount: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await apiClient.post(`/projects/${projectId}/wbs/import`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
+  return data
+}

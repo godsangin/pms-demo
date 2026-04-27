@@ -10,13 +10,15 @@ DELETE FROM users;
 
 -- 1. 사용자 (기본 관리자 및 담당자)
 INSERT INTO users (id, username, password_hash, full_name, org_name, role) VALUES
-('00000000-0000-0000-0000-000000000001', 'admin', 'password_hash_here', '관리자', '한국조폐공사', 'ADMIN'),
-('00000000-0000-0000-0000-000000000002', 'isangin', 'password_hash_here', '이상인', '한국조폐공사', 'EXEC'),
-('00000000-0000-0000-0000-000000000003', 'jsjeong', 'password_hash_here', '정진솔', '더큰소프트', 'USER');
+('00000000-0000-0000-0000-000000000001', 'komsco', '$2b$10$ZxI5Lj5R8ZiFFFGzjDhueOR37xsixuWai7a9ihOECnFVwMbk5VaYS', '조폐공사 관리자', '한국조폐공사', 'ADMIN'),
+('00000000-0000-0000-0000-000000000002', 'seeroo', '$2b$10$ZxI5Lj5R8ZiFFFGzjDhueOR37xsixuWai7a9ihOECnFVwMbk5VaYS', '시루 담당자', '시루', 'USER'),
+('00000000-0000-0000-0000-000000000003', 'dukn', '$2b$10$ZxI5Lj5R8ZiFFFGzjDhueOR37xsixuWai7a9ihOECnFVwMbk5VaYS', '덕은 담당자', '덕은', 'USER'),
+('00000000-0000-0000-0000-000000000004', 'pytha', '$2b$10$ZxI5Lj5R8ZiFFFGzjDhueOR37xsixuWai7a9ihOECnFVwMbk5VaYS', '피타 담당자', '피타', 'USER'),
+('00000000-0000-0000-0000-000000000005', 'nice', '$2b$10$ZxI5Lj5R8ZiFFFGzjDhueOR37xsixuWai7a9ihOECnFVwMbk5VaYS', '나이스 담당자', '나이스', 'USER');
 
 -- 2. 프로젝트 (UUID 형식 준수)
 INSERT INTO projects (id, name, description, pm_id, start_date, end_date, status, total_progress, sv_this_week) VALUES
-('00000000-0000-0000-0000-000000002026', '온누리상품권 홈페이지 소비데이터 고도화 사업', '온누리상품권 소비데이터 고도화 및 서비스 최적화 프로젝트', '00000000-0000-0000-0000-000000000002', '2026-02-23', '2026-12-18', 'GREEN', 12.16, 4.5);
+('00000000-0000-0000-0000-000000002026', '온누리상품권 홈페이지 소비데이터 고도화 사업', '온누리상품권 소비데이터 고도화 및 서비스 최적화 프로젝트', '00000000-0000-0000-0000-000000000001', '2026-02-23', '2026-12-18', 'GREEN', 12.16, 4.5);
 
 -- 3. 프로젝트 단계 (Phases)
 INSERT INTO phases (project_id, phase_type, name, weight, progress_rate, sort_order) VALUES

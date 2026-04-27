@@ -9,6 +9,7 @@ import { Table, type Column } from '@/shared/ui/Table'
 import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
 import { useRegisterProgramsBulkMutation, useUpdateProgramMutation, useCreateTaskMutation } from '../hooks'
+import { getActiveRole } from '@/shared/lib/role'
 
 function parseIsoDateLocal(iso: string | undefined | null) {
   if (!iso) return null
@@ -40,6 +41,9 @@ export function ProgramListPanel({ programs }: { programs: ProgramItem[] }) {
   const params = useParams()
   const projectId = params.projectId ?? ''
   
+  const role = getActiveRole()
+  const isAdmin = role === 'ADMIN'
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<ProgramItem | undefined>()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -186,20 +190,24 @@ export function ProgramListPanel({ programs }: { programs: ProgramItem[] }) {
           <CardTitle>{t('software.programs.title')}</CardTitle>
           <div className="flex items-center gap-2">
             <div className="text-xs text-zinc-600">{programs.length}</div>
-            <Button size="sm" variant="outline" onClick={handleDownloadTemplate}>
-              서식 다운로드
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={bulkRegister.isPending}>
-              CSV 일괄 등록
-            </Button>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept=".csv" 
-              onChange={handleCsvUpload} 
-            />
-            <Button size="sm" onClick={openRegister}>+ 프로그램 등록</Button>
+            {isAdmin && (
+              <>
+                <Button size="sm" variant="outline" onClick={handleDownloadTemplate}>
+                  서식 다운로드
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={bulkRegister.isPending}>
+                  CSV 일괄 등록
+                </Button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept=".csv" 
+                  onChange={handleCsvUpload} 
+                />
+                <Button size="sm" onClick={openRegister}>+ 프로그램 등록</Button>
+              </>
+            )}
           </div>
         </CardHeader>
         <CardBody className="p-0">

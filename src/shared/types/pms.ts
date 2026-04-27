@@ -104,6 +104,7 @@ export type DeliverableItem = {
   submittedDate?: string
   decidedDate?: string
   stage?: DeliveryStage
+  filePath?: string
   tailoringHistory?: any[]
   attachment?: {
     name: string

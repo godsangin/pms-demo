@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgressService } from '../progress/progress.service';
+import { excelSerialToDate } from '../shared/utils/excel-date';
+import { parse } from 'csv-parse/sync';
 
 @Injectable()
 export class ProjectService {
@@ -333,5 +335,66 @@ export class ProjectService {
       stage: d.stage,
       filePath: d.file_path,
     }));
+  }
+
+  async getDeliverableById(deliverableId: string) {
+    return this.prisma.deliverable.findUnique({
+      where: { id: deliverableId }
+    });
+  }
+
+  // WBS CSV 파일 기반 데이터 임포트
+  async importWbsFromCsv(projectId: string, csvContent: string) {
+    const records = parse(csvContent, {
+      columns: false,
+      skip_empty_lines: true,
+      relax_column_count: true,
+    });
+
+    // 헤더 이후의 데이터 행만 처리 (7행부터 데이터 시작)
+    const dataRows = records.slice(7);
+    let updatedCount = 0;
+
+    for (const row of dataRows) {
+      const wbsCode = row[2]?.trim();
+      if (!wbsCode) continue;
+
+      const baselineStart = excelSerialToDate(row[12]);
+      const baselineEnd = excelSerialToDate(row[13]);
+      const actualStart = excelSerialToDate(row[18]);
+      const actualEnd = excelSerialToDate(row[19]);
+      
+      // 진척률 (20.5% 와 같은 형식 처리)
+      const progressRaw = row[20] || '0';
+      const progressRate = parseFloat(progressRaw.replace('%', '')) || 0;
+
+      // 해당 WBS 코드를 가진 테스크 찾기
+      const task = await this.prisma.task.findFirst({
+        where: { 
+          wbs_code: wbsCode,
+          phase: { project_id: projectId }
+        }
+      });
+
+      if (task) {
+        await this.prisma.task.update({
+          where: { id: task.id },
+          data: {
+            baseline_start: baselineStart,
+            baseline_end: baselineEnd,
+            actual_start: actualStart,
+            actual_end: actualEnd,
+            progress_rate: progressRate,
+            status: progressRate === 100 ? 'DONE' : progressRate > 0 ? 'IN_PROGRESS' : 'READY'
+          }
+        });
+        updatedCount++;
+      }
+    }
+
+    // 전체 진척률 재계산
+    await this.progressService.recalculateProjectTotalProgress(projectId);
+
+    return { updatedCount };
   }
 }
