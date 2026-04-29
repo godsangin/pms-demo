@@ -35,6 +35,16 @@ export class ProjectController {
     return this.projectService.getProjectDeliverables(id);
   }
 
+  // 산출물 업데이트 (진척률 등)
+  @Patch(':id/deliverables/:deliverableId')
+  async updateDeliverable(
+    @Param('id') _projectId: string,
+    @Param('deliverableId') deliverableId: string,
+    @Body() updates: any,
+  ) {
+    return this.projectService.updateDeliverable(deliverableId, updates);
+  }
+
   // 신규 산출물 등록
   @Post(':id/deliverables')
   async createDeliverable(@Param('id') projectId: string, @Body() data: any) {

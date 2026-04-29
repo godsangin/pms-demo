@@ -16,8 +16,9 @@ export const dict = {
     'nav.product': 'PMS',
     'nav.execDemo': 'PMS-SI',
     'nav.section.exec': 'Executive',
-    'nav.exec.portfolio': 'Portfolio Dashboard',
-    'nav.exec.risks': 'Risk Board',
+    'nav.exec.dashboard': 'Dashboard',
+    'nav.exec.projectManage': 'Project Management',
+    'nav.exec.riskBoard': 'Issue/Risk Board',
     'nav.footer.mockOnly': 'Local mock data only',
 
     'dashboard.topbar.title': 'Portfolio Dashboard',

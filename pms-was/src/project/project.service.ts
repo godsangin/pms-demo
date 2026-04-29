@@ -201,6 +201,7 @@ export class ProjectService {
         project_id: projectId,
         title: data.title,
         status: data.status || 'PLANNED',
+        progress_rate: data.progressPct ? Number(data.progressPct) : 0,
         due_date: data.dueDate ? new Date(data.dueDate) : undefined,
         stage: data.stage,
         task_id: data.taskId,
@@ -210,6 +211,25 @@ export class ProjectService {
     // 승인율 재계산
     await this.recalculateApprovalRate(projectId);
     
+    return item;
+  }
+
+  // 산출물 업데이트 (진척률 등)
+  async updateDeliverable(deliverableId: string, updates: any) {
+    const item = await this.prisma.deliverable.update({
+      where: { id: deliverableId },
+      data: {
+        title: updates.title,
+        status: updates.status,
+        progress_rate: updates.progressPct !== undefined ? Number(updates.progressPct) : undefined,
+        due_date: updates.dueDate ? new Date(updates.dueDate) : undefined,
+        stage: updates.stage,
+      } as any,
+    });
+
+    // 승인율 재계산
+    await this.recalculateApprovalRate(item.project_id);
+
     return item;
   }
 
@@ -330,6 +350,7 @@ export class ProjectService {
       projectId: d.project_id,
       title: d.title,
       status: d.status,
+      progressPct: Number(d.progress_rate || 0),
       dueDate: d.due_date,
       submittedDate: d.submitted_date,
       stage: d.stage,

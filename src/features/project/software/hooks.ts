@@ -11,6 +11,7 @@ import {
   createTask,
   updateDeliverableTailoring,
   createDeliverable,
+  updateDeliverable,
   uploadDeliverableFile,
 } from '@/features/project/software/api'
 import type { Lang } from '@/shared/i18n/dict'
@@ -112,6 +113,18 @@ export function useCreateDeliverableMutation() {
   return useMutation({
     mutationFn: ({ projectId, deliverable }: { projectId: string; deliverable: Partial<DeliverableItem> }) =>
       createDeliverable(projectId, deliverable),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['project-deliverables', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-detail', variables.projectId] })
+    },
+  })
+}
+
+export function useUpdateDeliverableMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, deliverableId, updates }: { projectId: string; deliverableId: string; updates: Partial<DeliverableItem> }) =>
+      updateDeliverable(projectId, deliverableId, updates),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project-deliverables', variables.projectId] })
       queryClient.invalidateQueries({ queryKey: ['project-detail', variables.projectId] })

@@ -43,6 +43,12 @@ export async function createDeliverable(projectId: string, deliverable: Partial<
   return data
 }
 
+// 산출물 업데이트 (진척률 등)
+export async function updateDeliverable(projectId: string, deliverableId: string, updates: Partial<DeliverableItem>) {
+  const { data } = await apiClient.patch(`/projects/${projectId}/deliverables/${deliverableId}`, updates)
+  return data
+}
+
 // 산출물 파일 업로드
 export async function uploadDeliverableFile(projectId: string, deliverableId: string, file: File) {
   const formData = new FormData()

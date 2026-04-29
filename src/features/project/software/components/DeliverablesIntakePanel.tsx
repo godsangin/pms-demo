@@ -283,6 +283,7 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
               title: data.title as string,
               stage: data.stage as DeliveryStage,
               dueDate: data.dueDate as string,
+              progressPct: Number(data.progressPct || 0),
               status: 'PLANNED'
             }
           }, {
@@ -310,6 +311,11 @@ export function DeliverablesIntakePanel({ items }: { items: DeliverableItem[] })
           <div>
             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">제출 예정일</label>
             <input name="dueDate" type="date" required className="w-full p-2 border rounded-xl text-sm" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">현재 진척률 (%)</label>
+            <input name="progressPct" type="number" min="0" max="100" defaultValue="0" className="w-full p-2 border rounded-xl text-sm" />
           </div>
 
           <div className="pt-4 flex justify-end gap-2">

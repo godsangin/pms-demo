@@ -9,14 +9,18 @@ import { Table, type Column } from '@/shared/ui/Table'
 import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
 import { DeliverableUpload } from './DeliverableUpload'
-import { useCreateDeliverableMutation, useRegisterDeliverablesBulkMutation } from '@/features/project/software/hooks'
+import { 
+  useCreateDeliverableMutation, 
+  useRegisterDeliverablesBulkMutation,
+  useUpdateDeliverableMutation 
+} from '@/features/project/software/hooks'
 import { getActiveRole } from '@/shared/lib/role'
 import { getStoredToken } from '@/shared/lib/storage'
 
-function statusTone(status: DeliverableStatus) {
-  if (status === 'ACCEPTED') return 'green'
+function statusTone(status: DeliverableStatus, progress?: number) {
+  if (status === 'ACCEPTED' || progress === 100) return 'green'
   if (status === 'REJECTED') return 'red'
-  if (status === 'SUBMITTED') return 'yellow'
+  if (status === 'SUBMITTED' || (progress && progress > 0)) return 'yellow'
   return 'zinc'
 }
 
@@ -33,10 +37,19 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
 
   const createMutation = useCreateDeliverableMutation()
   const bulkRegister = useRegisterDeliverablesBulkMutation()
+  const updateMutation = useUpdateDeliverableMutation()
 
   const handleUpload = (id: string) => {
     setSelectedId(id)
     setIsUploadOpen(true)
+  }
+
+  const handleProgressChange = (id: string, nextPct: number) => {
+    updateMutation.mutate({
+      projectId: projectId!,
+      deliverableId: id,
+      updates: { progressPct: nextPct }
+    })
   }
 
   const handleDownload = async (deliverableId: string, fileName: string) => {
@@ -127,7 +140,7 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
   const columns: Column<DeliverableItem>[] = [
     {
       header: t('deliverables.col.deliverable'),
-      className: 'w-[360px]',
+      className: 'w-[300px]',
       cell: (d) => (
         <div className="leading-tight">
           <div className="font-semibold text-zinc-900">{d.title}</div>
@@ -143,11 +156,28 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
       ),
     },
     {
+      header: '진척률',
+      className: 'w-[140px] text-center',
+      cell: (d) => (
+        <div className="flex items-center gap-2 justify-center">
+          <select 
+            value={d.progressPct || 0}
+            onChange={(e) => handleProgressChange(d.id, Number(e.target.value))}
+            className="text-[13px] border border-zinc-200 rounded-lg p-1 bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          >
+            {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(val => (
+              <option key={val} value={val}>{val}%</option>
+            ))}
+          </select>
+        </div>
+      )
+    },
+    {
       header: t('deliverables.col.status'),
       className: 'w-[130px] text-center',
       cell: (d) => (
         <div className="flex flex-col items-center gap-1">
-          <Badge tone={statusTone(d.status)}>{d.status}</Badge>
+          <Badge tone={statusTone(d.status, d.progressPct)}>{d.status}</Badge>
           {((d.status as string) === 'NOT_SUBMITTED' || (d.status as string) === 'PLANNED') ? (
             <Button size="xs" variant="outline" onClick={() => handleUpload(d.id)}>업로드</Button>
           ) : d.filePath ? (
@@ -255,6 +285,11 @@ export function DeliverablesTable({ items }: { items: DeliverableItem[] }) {
               <option value="TEST">테스트</option>
               <option value="DEPLOYMENT">배포/운영</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">현재 진척률 (%)</label>
+            <input name="progressPct" type="number" min="0" max="100" defaultValue="0" className="w-full p-2 border rounded-xl text-sm" />
           </div>
 
           <div className="flex justify-end gap-2 mt-8">
