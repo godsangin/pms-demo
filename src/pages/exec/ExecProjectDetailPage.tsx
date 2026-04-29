@@ -1,53 +1,23 @@
-import { useEffect, useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { Outlet, useParams } from 'react-router-dom'
 
-import { BaselineActualTimeline } from '@/features/project/components/BaselineActualTimeline'
-import { DeliverablesTable } from '@/features/project/components/DeliverablesTable'
-import { ProgressTrendChart } from '@/features/project/components/ProgressTrendChart'
-import { TopRisksBlock } from '@/features/project/components/TopRisksBlock'
-import { WbsImportButton } from '@/features/project/components/WbsImportButton'
-import { DeliverablesIntakePanel } from '@/features/project/software/components/DeliverablesIntakePanel'
-import { ProgramListPanel } from '@/features/project/software/components/ProgramListPanel'
-import { StageProgressPanel } from '@/features/project/software/components/StageProgressPanel'
-import { TestManagementPanel } from '@/features/project/software/components/TestManagementPanel'
-import { UnitTestMonitor } from '@/features/project/software/components/UnitTestMonitor'
-import {
-  useProjectDeliverablesQuery,
-  useProjectDetailQuery,
-  useProjectProgressQuery,
-  useProjectTasksQuery,
-  useProjectDefectsQuery,
+import { 
+  useProjectDetailQuery, 
+  useProjectTasksQuery, 
+  useProjectDeliverablesQuery, 
+  useProjectDefectsQuery 
 } from '@/features/project/hooks'
-import {
-  useProgramsQuery,
-  useStageProgressQuery,
-  useTestScenariosQuery,
-} from '@/features/project/software/hooks'
+import { useProgramsQuery, useTestScenariosQuery } from '@/features/project/software/hooks'
 import { useExecutiveTopBar } from '@/layouts/executive/ExecutiveLayout'
-import { formatDday, formatIsoDate, formatPercent, formatSignedPercent } from '@/shared/lib/format'
 import { useI18n } from '@/shared/i18n/I18nProvider'
-import { StatusBadge } from '@/shared/ui/Badge'
-import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card'
-import { getActiveRole } from '@/shared/lib/role'
+import { Card, CardBody } from '@/shared/ui/Card'
 
+// Shared Project Layout Wrapper
 export function ExecProjectDetailPage() {
   const params = useParams()
   const projectId = params.projectId ?? ''
-  const queryClient = useQueryClient()
-  const role = getActiveRole()
-  const isAdmin = role === 'ADMIN'
-
   const { t, lang } = useI18n()
-
   const { data, isLoading, isError, error } = useProjectDetailQuery(projectId, lang)
-  const progressQuery = useProjectProgressQuery(projectId)
-  const tasksQuery = useProjectTasksQuery(projectId, lang)
-  const deliverablesQuery = useProjectDeliverablesQuery(projectId, lang)
-  const stageProgressQuery = useStageProgressQuery(projectId)
-  const programsQuery = useProgramsQuery(projectId, lang)
-  const testScenariosQuery = useTestScenariosQuery(projectId, lang)
-  const defectsQuery = useProjectDefectsQuery(projectId)
   const { setTopBar } = useExecutiveTopBar()
 
   useEffect(() => {
@@ -55,22 +25,6 @@ export function ExecProjectDetailPage() {
     const subtitle = data ? data.project.description : ''
     setTopBar({ title, subtitle })
   }, [data, projectId, setTopBar])
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
-    queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
-    queryClient.invalidateQueries({ queryKey: ['project-progress', projectId] })
-    queryClient.invalidateQueries({ queryKey: ['programs', projectId] })
-    queryClient.invalidateQueries({ queryKey: ['stage-progress', projectId] })
-  }
-
-  const svTrend = useMemo(() => {
-    const points = progressQuery.data
-    if (!points || points.length < 2) return undefined
-    const last2 = points.slice(-2)
-    const sv = last2.map((p) => p.actual - p.planned)
-    return { prev: sv[0], curr: sv[1], prevWeek: last2[0].week, currWeek: last2[1].week }
-  }, [progressQuery.data])
 
   if (isError) {
     const message = error instanceof Error ? error.message : t('app.unknownError')
@@ -104,194 +58,177 @@ export function ExecProjectDetailPage() {
     )
   }
 
-  const p = data.project
+  return <Outlet context={{ projectDetail: data }} />
+}
+
+// 1단계: 프로젝트 관리 (Baseline vs Actual)
+import { BaselineActualTimeline } from '@/features/project/components/BaselineActualTimeline'
+import { DeliverablesIntakePanel } from '@/features/project/software/components/DeliverablesIntakePanel'
+import { StageProgressPanel } from '@/features/project/software/components/StageProgressPanel'
+
+export function ProjectMgmtPage() {
+  const { projectId } = useParams()
+  const { t, lang } = useI18n()
+  const { data: tasks } = useProjectTasksQuery(projectId ?? '', lang)
+  const { data: deliverables } = useProjectDeliverablesQuery(projectId ?? '', lang)
+  const { data: programs } = useProgramsQuery(projectId ?? '', lang)
+  const { data: scenarios } = useTestScenariosQuery(projectId ?? '', lang)
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-xs text-zinc-600">
-            <Link to="/exec" className="font-semibold text-zinc-900 hover:underline">
-              {t('project.breadcrumb.portfolio')}
-            </Link>
-          </div>
-          <div className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900">{p.name}</div>
-          <div className="mt-1 text-sm text-zinc-600">{p.description}</div>
-        </div>
-        {isAdmin && (
-          <div className="flex items-center gap-2">
-            <WbsImportButton projectId={projectId} onSuccess={handleRefresh} />
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <div className="xl:col-span-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('project.section.overview')}</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-zinc-900">{t('project.field.status')}</div>
-                <StatusBadge status={p.status} />
-              </div>
-              <div className="rounded-2xl border border-zinc-200 p-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('project.field.period')}</div>
-                    <div className="mt-1 text-sm font-semibold text-zinc-900">
-                      {formatIsoDate(p.startDate)} - {formatIsoDate(p.endDate)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('project.field.pm')}</div>
-                    <div className="mt-1 text-sm font-semibold text-zinc-900">{p.pmName}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-zinc-200 p-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('project.field.nextMilestone')}</div>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">{p.nextMilestone.name}</div>
-                <div className="mt-0.5 text-xs text-zinc-600">
-                  {formatIsoDate(p.nextMilestone.date)} | {formatDday(p.nextMilestone.date)}
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-
-        <div className="xl:col-span-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('project.section.performance')}</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-3">
-              <div className="rounded-2xl border border-zinc-200 p-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('project.field.svThisWeek')}</div>
-                <div className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900">
-                  {formatSignedPercent(p.svThisWeek, 1)}
-                </div>
-                <div className="mt-1 text-xs text-zinc-600">
-                  {svTrend
-                    ? `${t('project.field.twoWeekTrend')}: ${svTrend.prevWeek} ${formatSignedPercent(svTrend.prev, 1)} -> ${svTrend.currWeek} ${formatSignedPercent(svTrend.curr, 1)}`
-                    : `${t('project.field.twoWeekTrend')}: -`}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-zinc-200 p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('project.field.deliverableApproval')}</div>
-                  <div className="mt-1 text-lg font-semibold tracking-tight text-zinc-900">
-                    {formatPercent(p.deliverableApprovalRate, 0)}
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-zinc-200 p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{t('project.field.highRisks')}</div>
-                  <div className="mt-1 text-lg font-semibold tracking-tight text-zinc-900">{p.highRiskCount}</div>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-
-        <div className="xl:col-span-4">
-          <TopRisksBlock risks={data.risks} />
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div className="xl:col-span-8">
-          {progressQuery.data ? (
-            <ProgressTrendChart points={progressQuery.data} />
-          ) : (
-            <Card className="h-[300px] flex items-center justify-center">
-              <div className="text-sm text-zinc-600">{t('app.loadingChart')}</div>
-            </Card>
-          )}
+          {deliverables && <DeliverablesIntakePanel items={deliverables} />}
         </div>
         <div className="xl:col-span-4">
-          {stageProgressQuery.data ? (
-            <StageProgressPanel 
-              deliverables={deliverablesQuery.data || []}
-              programs={(programsQuery.data as any) || []}
-              scenarios={testScenariosQuery.data || []}
-            />
-          ) : (
-            <Card>
-              <CardBody>
-                <div className="text-sm text-zinc-600">{t('app.loading')}</div>
-              </CardBody>
-            </Card>
-          )}
+          <StageProgressPanel 
+            deliverables={deliverables || []}
+            programs={(programs as any) || []}
+            scenarios={scenarios || []}
+          />
         </div>
       </div>
-
-      {tasksQuery.data ? (
-        <BaselineActualTimeline tasks={tasksQuery.data} />
+      
+      {tasks ? (
+        <BaselineActualTimeline tasks={tasks} />
       ) : (
         <Card>
-          <CardHeader>
-            <CardTitle>{t('project.timeline.title')}</CardTitle>
-          </CardHeader>
           <CardBody>
             <div className="text-sm text-zinc-600">{t('app.loading')}</div>
           </CardBody>
         </Card>
       )}
+    </div>
+  )
+}
 
-      {deliverablesQuery.data && <DeliverablesIntakePanel items={deliverablesQuery.data} />}
+// 2단계: 분석/설계 (산출물 목록 및 진척률)
+import { DeliverablesTable } from '@/features/project/components/DeliverablesTable'
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {deliverablesQuery.data ? (
-          <DeliverablesTable items={deliverablesQuery.data} />
-        ) : (
-          <Card>
-            <CardHeader><CardTitle>{t('deliverables.title')}</CardTitle></CardHeader>
-            <CardBody><div className="text-sm text-zinc-600">{t('app.loading')}</div></CardBody>
-          </Card>
-        )}
+export function ProjectAnalysisPage() {
+  const { projectId } = useParams()
+  const { lang } = useI18n()
+  const { data } = useProjectDeliverablesQuery(projectId ?? '', lang)
 
-        <UnitTestMonitor 
-          programs={tasksQuery.data?.filter(t => t.category === 'PROGRAM') || []}
-          defects={defectsQuery.data || []}
-        />
-      </div>
+  const analysisItems = data?.filter(d => d.stage === 'ANALYSIS_DESIGN') || []
+  const total = analysisItems.length
+  const sumProgress = analysisItems.reduce((acc, curr) => acc + (curr.progressPct || 0), 0)
+  const progress = total > 0 ? Math.round(sumProgress / total) : 0
 
+  return (
+    <div className="space-y-4">
+      <Card className="bg-zinc-900 text-white border-none shadow-lg">
+        <CardBody className="flex items-center justify-between py-6">
+          <div>
+            <div className="text-sm font-bold text-zinc-400 uppercase tracking-wider">분석/설계 단계 산출물 진척현황</div>
+            <div className="mt-1 text-2xl font-black tabular-nums">Average Progress: {progress}%</div>
+          </div>
+          <div className="flex items-center gap-6 text-right">
+            <div>
+              <div className="text-[10px] font-bold text-zinc-500 uppercase">Total Items</div>
+              <div className="text-lg font-bold">{total} 건</div>
+            </div>
+            <div className="h-10 w-[1px] bg-zinc-800" />
+            <div className="w-32 bg-zinc-800 h-2 rounded-full overflow-hidden">
+              <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+      <DeliverablesTable items={analysisItems} />
+    </div>
+  )
+}
+
+// 3단계: 개발 (개발현황/단위테스트)
+import { ProgramListPanel } from '@/features/project/software/components/ProgramListPanel'
+import { UnitTestMonitor } from '@/features/project/software/components/UnitTestMonitor'
+
+export function ProjectDevPage() {
+  const { projectId } = useParams()
+  const { t, lang } = useI18n()
+  const programsQuery = useProgramsQuery(projectId ?? '', lang)
+  const tasksQuery = useProjectTasksQuery(projectId ?? '', lang)
+  const defectsQuery = useProjectDefectsQuery(projectId ?? '')
+
+  return (
+    <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div className="xl:col-span-6">
           {programsQuery.data ? (
             <ProgramListPanel programs={programsQuery.data as any} />
           ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('software.programs.title')}</CardTitle>
-              </CardHeader>
-              <CardBody>
-                <div className="text-sm text-zinc-600">{t('app.loading')}</div>
-              </CardBody>
-            </Card>
+            <Card><CardBody><div className="text-sm text-zinc-600">{t('app.loading')}</div></CardBody></Card>
           )}
         </div>
         <div className="xl:col-span-6">
-          {testScenariosQuery.data ? (
-            <TestManagementPanel 
-              projectId={p.id} 
-              programs={(programsQuery.data as any) || []} 
-              scenarios={testScenariosQuery.data} 
-            />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('software.tests.title')}</CardTitle>
-              </CardHeader>
-              <CardBody>
-                <div className="text-sm text-zinc-600">{t('app.loading')}</div>
-              </CardBody>
-            </Card>
-          )}
+          <UnitTestMonitor 
+            programs={tasksQuery.data?.filter(t => t.category === 'PROGRAM') || []}
+            defects={defectsQuery.data || []}
+          />
         </div>
       </div>
+    </div>
+  )
+}
+
+// 4단계: 테스트 (테스트 관리)
+import { TestManagementPanel } from '@/features/project/software/components/TestManagementPanel'
+
+export function ProjectTestPage() {
+  const { projectId } = useParams()
+  const { t, lang } = useI18n()
+  const programsQuery = useProgramsQuery(projectId ?? '', lang)
+  const testScenariosQuery = useTestScenariosQuery(projectId ?? '', lang)
+
+  return (
+    <div className="space-y-4">
+      {testScenariosQuery.data ? (
+        <TestManagementPanel 
+          projectId={projectId ?? ''} 
+          programs={(programsQuery.data as any) || []} 
+          scenarios={testScenariosQuery.data} 
+        />
+      ) : (
+        <Card><CardBody><div className="text-sm text-zinc-600">{t('app.loading')}</div></CardBody></Card>
+      )}
+    </div>
+  )
+}
+
+// 5단계: 이행 (이행안정화)
+export function ProjectTransitionPage() {
+  const { projectId } = useParams()
+  const { lang } = useI18n()
+  const { data } = useProjectDeliverablesQuery(projectId ?? '', lang)
+
+  const transitionItems = data?.filter(d => d.stage === 'DEPLOYMENT') || []
+  const total = transitionItems.length
+  const sumProgress = transitionItems.reduce((acc, curr) => acc + (curr.progressPct || 0), 0)
+  const progress = total > 0 ? Math.round(sumProgress / total) : 0
+
+  return (
+    <div className="space-y-4">
+      <Card className="bg-zinc-900 text-white border-none shadow-lg">
+        <CardBody className="flex items-center justify-between py-6">
+          <div>
+            <div className="text-sm font-bold text-zinc-400 uppercase tracking-wider">이행 및 안정화 산출물 진척현황</div>
+            <div className="mt-1 text-2xl font-black tabular-nums">Average Progress: {progress}%</div>
+          </div>
+          <div className="flex items-center gap-6 text-right">
+            <div>
+              <div className="text-[10px] font-bold text-zinc-500 uppercase">Total Items</div>
+              <div className="text-lg font-bold">{total} 건</div>
+            </div>
+            <div className="h-10 w-[1px] bg-zinc-800" />
+            <div className="w-32 bg-zinc-800 h-2 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full transition-all duration-1000" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      <DeliverablesTable items={transitionItems} />
     </div>
   )
 }

@@ -1,0 +1,4 @@
+
+> pms-demo@0.0.0 build:be
+> nest build --path pms-was/tsconfig.json && echo '{"type": "commonjs"}' > dist/pms-was/package.json
+

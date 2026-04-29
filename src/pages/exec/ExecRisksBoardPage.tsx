@@ -13,6 +13,7 @@ import type { RiskStatus } from '@/shared/types/pms'
 import { Badge } from '@/shared/ui/Badge'
 import { Card, CardBody, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Drawer } from '@/shared/ui/Drawer'
+import { Button } from '@/shared/ui/Button'
 
 const RISK_STATUS_KEY = 'pms-demo-risk-status-override'
 
@@ -91,6 +92,9 @@ export function ExecRisksBoardPage() {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => alert('리스크 등록 팝업 (Mock)')}>+ 리스크 등록</Button>
+      </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         {(['OPEN', 'MITIGATING', 'CLOSED'] as RiskStatus[]).map((status) => (
           <div key={status} className="xl:col-span-4">

@@ -14,14 +14,12 @@ export const StageProgressPanel: React.FC<StageProgressProps> = ({
   programs = [],
   scenarios = []
 }) => {
-  // 1. 분석/설계: 전체 산출물 대비 '입고(SUBMITTED 이상)' 산출물 기준
+  // 1. 분석/설계: 해당 단계(ANALYSIS_DESIGN) 산출물의 진척률(progressPct) 평균
   const calculateAnalysisProgress = () => {
-    if (!deliverables || deliverables.length === 0) return 0;
-    // 입고된 것은 SUBMITTED, ACCEPTED, REJECTED 상태를 포함 (PLANNED/NOT_SUBMITTED 제외)
-    const received = deliverables.filter(d => 
-      d.status === 'SUBMITTED' || d.status === 'ACCEPTED' || d.status === 'REJECTED'
-    ).length;
-    return (received / deliverables.length) * 100;
+    const analysisItems = deliverables.filter(d => d.stage === 'ANALYSIS_DESIGN');
+    if (analysisItems.length === 0) return 0;
+    const totalProgress = analysisItems.reduce((acc, d) => acc + (d.progressPct || 0), 0);
+    return totalProgress / analysisItems.length;
   };
 
   // 2. 개발: 프로그램 목록별 진척률의 평균 값
@@ -47,11 +45,11 @@ export const StageProgressPanel: React.FC<StageProgressProps> = ({
   const metrics = [
     {
       label: '분석 / 설계',
-      subLabel: '산출물 입고 기준',
+      subLabel: '산출물 진척률 평균',
       progress: analysisProgress,
       color: 'bg-blue-500',
       textColor: 'text-blue-600',
-      detail: `입고 ${deliverables.filter(d => d.status !== 'PLANNED').length} / 전체 ${deliverables.length} 건`
+      detail: `분석 산출물 ${deliverables.filter(d => d.stage === 'ANALYSIS_DESIGN').length}건 집계`
     },
     {
       label: '개발 구현',

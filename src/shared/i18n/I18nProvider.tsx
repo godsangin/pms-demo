@@ -33,7 +33,7 @@ export function I18nProvider({ children }: PropsWithChildren) {
 
   const t = useCallback(
     (key: I18nKey, vars?: Vars) => {
-      const template = dict[lang][key] ?? dict.en[key] ?? key
+      const template = (dict[lang] as Record<I18nKey, string>)[key] ?? (dict.en as Record<I18nKey, string>)[key] ?? key
       return interpolate(template, vars)
     },
     [lang],

@@ -100,6 +100,7 @@ export type DeliverableItem = {
   taskId?: string
   title: string
   status: DeliverableStatus
+  progressPct?: number
   dueDate: string
   submittedDate?: string
   decidedDate?: string

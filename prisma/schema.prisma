@@ -149,6 +149,7 @@ model Deliverable {
   task_id        String?            @db.Uuid
   title          String             @db.VarChar(255)
   status         DeliverableStatus? @default(PLANNED)
+  progress_rate  Decimal?           @default(0.00) @db.Decimal(5, 2)
   due_date       DateTime?          @db.Date
   submitted_date DateTime?          @db.Date
   decided_date   DateTime?          @db.Date

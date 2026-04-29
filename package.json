@@ -11,7 +11,7 @@
     "build": "npm run build:fe && npm run build:be",
     "start": "node dist/pms-was/main.js",
     "lint": "eslint .",
-    "prisma:generate": "prisma generate",
+  "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push && prisma db seed"
   },
   "prisma": {
@@ -30,6 +30,7 @@
     "csv-parse": "^6.2.1",
     "date-fns": "^4.1.0",
     "json2csv": "^6.0.0-alpha.2",
+    "lucide-react": "^1.11.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -49,6 +50,7 @@
     "@tailwindcss/postcss": "^4.1.18",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
+    "@types/multer": "^2.1.0",
     "@types/node": "^24.10.1",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
